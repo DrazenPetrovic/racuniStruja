@@ -268,7 +268,7 @@ billList.addEventListener("click", async (event) => {
 
 async function initialize() {
   const today = new Date();
-  const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+  const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
   document.querySelector("#period-start").value = localDateString(previousMonth);
   document.querySelector("#period-end").value = localDateString(today);
   try {
