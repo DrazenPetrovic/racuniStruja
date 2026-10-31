@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="hr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f7f2">
+    <title>Struja — računi i potrošnja</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Struja, početna stranica">
+        <span class="brand-mark" aria-hidden="true">ϟ</span>
+        <span>struja<span class="brand-dot">.</span></span>
+      </a>
+      <span class="privacy-note"><span class="privacy-dot" aria-hidden="true"></span> Vaši podaci ostaju na ovom uređaju</span>
+    </header>
+
+    <main>
+      <section class="intro">
+        <p class="eyebrow">PREGLED POTROŠNJE</p>
+        <h1>Računi na jednom mjestu.<br><span>Potrošnja pod kontrolom.</span></h1>
+        <p class="intro-copy">Dodajte račun za struju i pratite kako se vaša potrošnja mijenja kroz vrijeme.</p>
+      </section>
+
+      <section class="summary" aria-label="Sažetak potrošnje">
+        <article class="summary-card summary-primary">
+          <div class="summary-label">UKUPNA POTROŠNJA</div>
+          <p class="summary-value"><span id="total-consumption">0</span><span class="summary-unit"> kWh</span></p>
+          <p class="summary-caption">zbroj svih unesenih računa</p>
+          <span class="summary-icon" aria-hidden="true">ϟ</span>
+        </article>
+        <article class="summary-card">
+          <div class="summary-label">UKUPNI IZNOS</div>
+          <p class="summary-value"><span id="total-cost">0,00&nbsp;€</span></p>
+          <p class="summary-caption">zbroj troškova računa</p>
+          <span class="summary-icon cost-icon" aria-hidden="true">€</span>
+        </article>
+        <article class="summary-card">
+          <div class="summary-label">UNESENI RAČUNI</div>
+          <p class="summary-value"><span id="bill-count">0</span></p>
+          <p class="summary-caption">sa spremljenim PDF dokumentom</p>
+          <span class="summary-icon count-icon" aria-hidden="true">↗</span>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <section class="panel chart-panel" aria-labelledby="chart-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">KRETANJE</p>
+              <h2 id="chart-title">Potrošnja po računima</h2>
+            </div>
+            <span class="chart-unit">kWh</span>
+          </div>
+          <div id="chart" class="chart" aria-live="polite">
+            <p class="empty-chart">Dodajte prvi račun za prikaz potrošnje.</p>
+          </div>
+        </section>
+
+        <section class="panel form-panel" aria-labelledby="form-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">NOVI UNOS</p>
+              <h2 id="form-title">Dodaj račun</h2>
+            </div>
+            <span class="upload-mark" aria-hidden="true">＋</span>
+          </div>
+          <p class="form-help">Vrijednosti unesite s računa. PDF će biti spremljen uz zapis.</p>
+          <form id="bill-form">
+            <div class="date-fields">
+              <label>
+                <span>Razdoblje od</span>
+                <input id="period-start" name="periodStart" type="date" required>
+              </label>
+              <label>
+                <span>Razdoblje do</span>
+                <input id="period-end" name="periodEnd" type="date" required>
+              </label>
+            </div>
+            <label>
+              <span>Potrošnja</span>
+              <span class="input-with-unit">
+                <input name="consumption" type="number" min="0.01" step="0.01" placeholder="npr. 285" required>
+                <span>kWh</span>
+              </span>
+            </label>
+            <label>
+              <span>Iznos računa</span>
+              <span class="input-with-unit">
+                <input name="cost" type="number" min="0" step="0.01" placeholder="npr. 42,50" required>
+                <span>€</span>
+              </span>
+            </label>
+            <label class="file-label">
+              <span>PDF račun</span>
+              <span class="file-picker">
+                <input id="pdf-file" name="pdf" type="file" accept="application/pdf,.pdf" required>
+                <span class="file-picker-button">Odaberi PDF</span>
+                <span id="file-name" class="file-name">Nijedna datoteka nije odabrana</span>
+              </span>
+              <span class="field-hint">PDF datoteka, najviše 20 MB</span>
+            </label>
+            <p id="form-message" class="form-message" role="status" aria-live="polite"></p>
+            <button class="submit-button" type="submit">Spremi račun <span aria-hidden="true">→</span></button>
+          </form>
+        </section>
+      </section>
+
+      <section class="panel bills-panel" aria-labelledby="bills-title">
+        <div class="section-heading bills-heading">
+          <div>
+            <p class="eyebrow">ARHIVA</p>
+            <h2 id="bills-title">Vaši računi</h2>
+          </div>
+          <span id="bill-count-label" class="bill-count-label">0 računa</span>
+        </div>
+        <div id="bill-list" class="bill-list">
+          <div class="empty-state">
+            <span class="empty-icon" aria-hidden="true">▤</span>
+            <h3>Još nema spremljenih računa</h3>
+            <p>Dodajte prvi PDF račun kako biste počeli pratiti potrošnju.</p>
+          </div>
+        </div>
+      </section>
+      <p class="local-storage-note">Računi i podaci spremaju se lokalno u vašem pregledniku. Očistite podatke preglednika i zapisi se mogu izgubiti.</p>
+    </main>
+    <footer><span class="footer-mark" aria-hidden="true">ϟ</span> Jednostavnije praćenje energije.</footer>
+  </body>
+</html>
