@@ -204,7 +204,7 @@ form.addEventListener("submit", async (event) => {
   const consumption = Number(data.get("consumption"));
   const cost = Number(data.get("cost"));
 
-  if (!pdf || !pdf.name.toLowerCase().endsWith(".pdf") || (pdf.type && pdf.type !== "application/pdf")) {
+  if (!pdf || !pdf.name.toLowerCase().endsWith(".pdf")) {
     setMessage("Odaberite valjanu PDF datoteku.");
     return;
   }
