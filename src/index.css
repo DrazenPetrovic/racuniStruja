@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sigurno-gore: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sigurno-dolje: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: #f5f4f7;
+  overscroll-behavior: none;
+}
+
+.login-soft-bg {
+  background: linear-gradient(135deg, #f3f0f8, #e8f5d8, #f0eaf8, #edf7e2);
+}
+
+.sigurno-gore {
+  padding-top: var(--sigurno-gore);
+}
+
+.sigurno-dolje {
+  padding-bottom: var(--sigurno-dolje);
+}
+
+/* Prostor da donja navigacija ne prekrije kraj sadrzaja */
+.prostor-za-navigaciju {
+  padding-bottom: calc(5rem + var(--sigurno-dolje));
+}
+
+/* Recharts ostavlja fokus okvir na grafiku nakon dodira */
+.recharts-wrapper *:focus {
+  outline: none;
+}

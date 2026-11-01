@@ -1,0 +1,31 @@
+# Logs
+logs
+*.log
+
+# Dependencies
+node_modules
+
+# Build output
+dist
+*.local
+
+# Editor configs
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+
+# Environment variables (NEVER commit!)
+.env
+.env.local
+.env.*.local
+
+# Racuni sadrze licne podatke (ime, adresa, EIC) - nikad u git
+uzorci/
+*.pdf
+
+# TypeScript
+*.tsbuildinfo
+
+# Vite cache
+.vite/
