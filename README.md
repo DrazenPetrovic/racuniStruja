@@ -21,7 +21,7 @@ korisnika, čije je korisničko ime i hash lozinke u `.env` fajlu (`npm run lozi
 ```powershell
 npm install
 copy .env.example .env   # popuni vrijednosti, hash lozinke daje: npm run lozinka
-npm run dev:server       # API na http://localhost:3010
+npm run dev:server       # API na http://localhost:3011
 npm run dev              # frontend na http://localhost:5173
 ```
 

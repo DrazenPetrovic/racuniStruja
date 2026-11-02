@@ -1,6 +1,6 @@
 import type { Evidencija, StanjeProcjene } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3010';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3011';
 const TOKEN_KLJUC = 'authToken';
 
 export const DOGADJAJ_ODJAVA = 'struja-odjava';

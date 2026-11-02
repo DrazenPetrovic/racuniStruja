@@ -12,7 +12,7 @@ if (!/^[0-9a-f]{32}:[0-9a-f]{128}$/.test(process.env.APP_PASSWORD_HASH)) {
 }
 
 export const env = {
-  PORT: process.env.PORT || 3010,
+  PORT: process.env.PORT || 3011,
   NODE_ENV: process.env.NODE_ENV || 'development',
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
   APP_USERNAME: process.env.APP_USERNAME,
