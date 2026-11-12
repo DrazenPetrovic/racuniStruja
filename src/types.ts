@@ -19,6 +19,7 @@ export interface Mjesec {
   id: number;
   mjesec: string;
   brojRacuna: string;
+  brojBrojila: string | null;
   zone: { vt: ZoneTarife; mt: ZoneTarife };
   vtMrezaKm: number;
   mtMrezaKm: number;
@@ -55,6 +56,7 @@ export interface Evidencija {
 export interface Ocitanje {
   id: number;
   datum: string;
+  vrijeme: string | null;
   vt: number;
   mt: number;
 }
@@ -77,6 +79,7 @@ export interface Procjena {
   mjesec: string;
   nedostajePocetak?: boolean;
   datumOcitanja: string;
+  vrijemeOcitanja: string | null;
   dana: number;
   uMjesecu: number;
   cilj: number;
@@ -92,13 +95,59 @@ export interface Procjena {
   raspon: { dana: number; kwh: number };
   prije: MjesecPrije[];
   gruba: boolean;
+  tok: TackaToka[];
+}
+
+export interface TackaToka {
+  datum: string;
+  vrijeme: string | null;
+  dan: number;
+  potroseno: number;
+  procjena: number | null;
+}
+
+export interface Trenutak {
+  datum: string;
+  vrijeme: string | null;
+}
+
+export interface IntervalPotrosnje {
+  od: Trenutak;
+  do: Trenutak;
+  izRacuna: boolean;
+  sati: number;
+  kwh: number;
+  vt: number;
+  mt: number;
+  kwhNaDan: number;
+  vtNaDan: number;
+  mtNaDan: number;
+  poredjenje: { od: Trenutak; do: Trenutak; kwhNaDan: number; promjena: number | null } | null;
+}
+
+export interface Kretanje {
+  intervali: IntervalPotrosnje[];
+  poredjenje: {
+    dana: number;
+    sada: { kwh: number; kwhNaDan: number };
+    prije: { kwh: number; kwhNaDan: number };
+    promjena: number | null;
+  } | null;
 }
 
 export interface StanjeProcjene {
   ocitanja: Ocitanje[];
-  zadnjePoznato: { datum: string; vt: number; mt: number; izRacuna: boolean } | null;
+  zadnjePoznato: { datum: string; vrijeme: string | null; vt: number; mt: number; izRacuna: boolean } | null;
   procjena: Procjena | null;
+  kretanje: Kretanje | null;
   upozorenja?: string[];
+  slanje?: {
+    podeseno: boolean;
+    dozvoljeno: boolean;
+    period: { od: number; do: number };
+    primalac: string | null;
+    brojBrojila: string | null;
+  };
 }
 
 export interface RezultatUvoza {

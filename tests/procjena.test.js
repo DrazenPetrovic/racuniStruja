@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cjenovnikIzRacuna, obracunajIznos, procijeni, provjeriOcitanje, zadnjePoznatoStanje } from '../src/services/procjena.js';
+import { cjenovnikIzRacuna, kretanjePotrosnje, obracunajIznos, procijeni, provjeriOcitanje, zadnjePoznatoStanje } from '../src/services/procjena.js';
 
 const zoneJul = {
   vt: {
@@ -129,4 +129,89 @@ test('validacija unosa', () => {
 test('ponovni unos za isti dan ne smeta validaciji', () => {
   const rucna = [{ id: 1, datum: '2026-11-01', vt: 9365, mt: 9911 }];
   assert.deepEqual(provjeriOcitanje({ datum: '2026-11-01', vt: 9300, mt: 9900 }, [septembar], rucna, '2026-11-02'), { upozorenja: [] });
+});
+
+test('jutro i vece istog dana su dva odvojena unosa sa tacnim dijelom dana', () => {
+  const rucna = [
+    { id: 1, datum: '2026-11-10', vrijeme: '07:00', vt: 9365, mt: 10011 },
+    { id: 2, datum: '2026-11-10', vrijeme: '19:00', vt: 9385, mt: 10011 },
+  ];
+  const p = procijeni([septembar, oktobar], rucna);
+  // 31.10. u ponoc do 10.11. u 19:00 je 9,79 dana
+  assert.equal(p.dana, 9.79);
+  assert.equal(p.vrijemeOcitanja, '19:00');
+  assert.equal(p.dosad.kwh, 520);
+  assert.equal(p.tok.length, 2);
+  assert.equal(p.tok[0].potroseno, 500);
+  assert.equal(p.tok[1].potroseno, 520);
+  assert.equal(p.tok[0].procjena, Math.round((500 / (9 + 7 / 24)) * 30));
+  assert.equal(p.tok[1].procjena, p.projekcija.kwh);
+});
+
+test('ocitanje u ponoc prvog dana zatvara prethodni mjesec', () => {
+  const p = procijeni([septembar], [
+    { id: 1, datum: '2026-11-01', vrijeme: '00:00', vt: 9165, mt: 9711 },
+    { id: 2, datum: '2026-11-11', vrijeme: '00:00', vt: 9365, mt: 9911 },
+  ]);
+  assert.equal(p.mjesec, '2026-11-01');
+  assert.equal(p.tacanPocetak, true);
+  assert.equal(p.dana, 10);
+  assert.equal(p.dosad.kwh, 400);
+});
+
+test('validacija vremena: buducnost u toku dana i isti trenutak', () => {
+  const sada = '2026-11-02 08:00';
+  assert.match(provjeriOcitanje({ datum: '2026-11-02', vrijeme: '09:00', vt: 9365, mt: 9911 }, [septembar], [], sada).greska, /budućnosti/);
+  assert.deepEqual(provjeriOcitanje({ datum: '2026-11-02', vrijeme: '07:55', vt: 9365, mt: 9911 }, [septembar], [], sada), { upozorenja: [] });
+  const rucna = [{ id: 1, datum: '2026-11-02', vrijeme: '07:00', vt: 9365, mt: 9911 }];
+  assert.match(
+    provjeriOcitanje({ datum: '2026-11-02', vrijeme: '07:30', vt: 9300, mt: 9911 }, [septembar], rucna, sada).greska,
+    /manje od stanja 2026-11-02 u 07:00/,
+  );
+  assert.deepEqual(provjeriOcitanje({ datum: '2026-11-02', vrijeme: '07:00', vt: 9300, mt: 9900 }, [septembar], rucna, sada), { upozorenja: [] });
+});
+
+test('kratak razmak ne daje upozorenje o sumnjivo velikoj potrosnji', () => {
+  const rucna = [{ id: 1, datum: '2026-11-02', vrijeme: '07:00', vt: 9365, mt: 9911 }];
+  const r = provjeriOcitanje({ datum: '2026-11-02', vrijeme: '08:00', vt: 9375, mt: 9911 }, [septembar], rucna, '2026-11-02 09:00');
+  assert.deepEqual(r.upozorenja, []);
+});
+
+test('kretanje poredi jutro sa jutrom i vece sa vecerom', () => {
+  const rucna = [
+    { id: 1, datum: '2026-11-10', vrijeme: '07:00', vt: 9300, mt: 9900 },
+    { id: 2, datum: '2026-11-10', vrijeme: '19:00', vt: 9320, mt: 9900 },
+    { id: 3, datum: '2026-11-11', vrijeme: '07:00', vt: 9320, mt: 9930 },
+    { id: 4, datum: '2026-11-11', vrijeme: '19:00', vt: 9350, mt: 9930 },
+  ];
+  const k = kretanjePotrosnje([septembar, oktobar], rucna);
+  assert.equal(k.intervali.length, 4);
+  const [, dan1, noc, dan2] = k.intervali;
+  assert.equal(dan1.sati, 12);
+  assert.equal(dan1.kwhNaDan, 40);
+  assert.equal(noc.kwhNaDan, 60);
+  assert.equal(noc.mt, 30);
+  assert.equal(dan2.kwhNaDan, 60);
+  assert.equal(dan2.poredjenje.kwhNaDan, 40);
+  assert.equal(dan2.poredjenje.promjena, 50);
+  assert.equal(noc.poredjenje, null);
+});
+
+test('kretanje: zadnjih 7 dana prema 7 dana prije', () => {
+  const rucna = [
+    { id: 1, datum: '2026-11-07', vrijeme: '20:00', vt: 9300, mt: 9900 },
+    { id: 2, datum: '2026-11-14', vrijeme: '20:00', vt: 9500, mt: 10000 },
+    { id: 3, datum: '2026-11-21', vrijeme: '20:00', vt: 9700, mt: 10200 },
+  ];
+  const k = kretanjePotrosnje([septembar, oktobar], rucna);
+  assert.equal(k.poredjenje.dana, 7);
+  assert.equal(k.poredjenje.sada.kwh, 400);
+  assert.equal(k.poredjenje.prije.kwh, 300);
+  assert.equal(k.poredjenje.promjena, 33.3);
+});
+
+test('kretanje bez dovoljno ocitanja ne izmislja poredjenje', () => {
+  const k = kretanjePotrosnje([septembar, oktobar], [{ id: 1, datum: '2026-11-10', vrijeme: '07:00', vt: 9300, mt: 9900 }]);
+  assert.equal(k.intervali.length, 1);
+  assert.equal(k.poredjenje, null);
 });

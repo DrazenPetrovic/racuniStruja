@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS potrosnja (
   id               INT UNSIGNED NOT NULL AUTO_INCREMENT,
   mjesec           DATE NOT NULL,            -- prvi dan mjeseca, npr. 2026-07-01
   broj_racuna      VARCHAR(40) NOT NULL,
+  broj_brojila     VARCHAR(20) NULL,
 
   vt_bijela_kwh    DECIMAL(10,2) NOT NULL,
   vt_bijela_cijena DECIMAL(8,4)  NOT NULL,
@@ -62,11 +63,12 @@ CREATE TABLE IF NOT EXISTS potrosnja (
 CREATE TABLE IF NOT EXISTS ocitanja (
   id        INT UNSIGNED NOT NULL AUTO_INCREMENT,
   datum     DATE NOT NULL,
+  vrijeme   TIME NULL,                -- NULL = stanje na kraju dana
   vt_stanje DECIMAL(12,2) NOT NULL,   -- skupa struja (AVT)
   mt_stanje DECIMAL(12,2) NOT NULL,   -- jeftina struja (AMT)
   uneseno   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_datum (datum)
+  UNIQUE KEY uq_trenutak (datum, vrijeme)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Poseban MySQL korisnik koji ima pristup samo ovoj bazi.

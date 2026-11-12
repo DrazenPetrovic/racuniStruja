@@ -74,7 +74,7 @@ export const uveziRacun = (fajl: File): Promise<{ status: 'dodan' | 'postoji'; m
 
 export const ucitajProcjenu = (): Promise<StanjeProcjene> => apiFetch('/api/ocitanja');
 
-export const sacuvajOcitanje = (ocitanje: { datum: string; vt: number; mt: number }): Promise<StanjeProcjene> =>
+export const sacuvajOcitanje = (ocitanje: { vt: number; mt: number }): Promise<StanjeProcjene> =>
   apiFetch('/api/ocitanja', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -83,5 +83,8 @@ export const sacuvajOcitanje = (ocitanje: { datum: string; vt: number; mt: numbe
 
 export const obrisiOcitanje = (id: number): Promise<StanjeProcjene> =>
   apiFetch(`/api/ocitanja/${id}`, { method: 'DELETE' });
+
+export const posaljiStanjeEmailom = (id: number): Promise<{ primalac: string }> =>
+  apiFetch(`/api/ocitanja/${id}/posalji`, { method: 'POST' }, 30000);
 
 export const obrisiMjesec = (id: number) => apiFetch(`/api/racuni/${id}`, { method: 'DELETE' });

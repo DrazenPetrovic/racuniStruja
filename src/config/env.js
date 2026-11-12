@@ -19,4 +19,13 @@ export const env = {
   APP_PASSWORD_HASH: process.env.APP_PASSWORD_HASH,
   JWT_SECRET: process.env.JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '30d',
+  // Slanje stanja brojila emailom (nije obavezno za rad aplikacije)
+  EMAIL: {
+    GMAIL_USER: process.env.GMAIL_USER,
+    GMAIL_APP_PASSWORD: process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, ''),
+    PRIMALAC: process.env.EMAIL_PRIMALAC,
+    BROJ_BROJILA: process.env.BROJ_BROJILA,
+    IME_PREZIME: process.env.IME_PREZIME,
+    ADRESA: process.env.ADRESA,
+  },
 };

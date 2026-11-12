@@ -16,6 +16,7 @@ const mapirajRed = (red) => ({
   id: red.id,
   mjesec: red.mjesec,
   brojRacuna: red.broj_racuna,
+  brojBrojila: red.broj_brojila ?? null,
   zone: { vt: zoneIzReda(red, 'vt'), mt: zoneIzReda(red, 'mt') },
   vtMrezaKm: red.vt_mreza_km,
   mtMrezaKm: red.mt_mreza_km,
@@ -35,7 +36,7 @@ export const ucitajEvidenciju = async () => {
 };
 
 const kolicineZona = TARIFE.flatMap((t) => ZONE.flatMap((z) => [`${t}_${z}_kwh`, `${t}_${z}_cijena`, `${t}_${z}_iznos`]));
-const kolone = ['mjesec', 'broj_racuna', ...kolicineZona, 'vt_mreza_km', 'mt_mreza_km', 'fiksno_km', 'pdv_stopa', 'pdv_km', 'ukupno_km', 'datum_ocitanja', 'vt_stanje', 'mt_stanje'];
+const kolone = ['mjesec', 'broj_racuna', 'broj_brojila', ...kolicineZona, 'vt_mreza_km', 'mt_mreza_km', 'fiksno_km', 'pdv_stopa', 'pdv_km', 'ukupno_km', 'datum_ocitanja', 'vt_stanje', 'mt_stanje'];
 
 export const redZaUpis = (racun) => {
   const { vt, mt, snaga } = racun.obracun;
@@ -43,6 +44,7 @@ export const redZaUpis = (racun) => {
   return [
     `${racun.periodDo.slice(0, 7)}-01`,
     racun.brojRacuna,
+    racun.brojBrojila ?? null,
     ...TARIFE.flatMap((t) => ZONE.flatMap((z) => [zone[t][z].kwh, zone[t][z].cijena, zone[t][z].iznos])),
     Number((vt.prenos + vt.distribucija + vt.oiee).toFixed(2)),
     Number((mt.prenos + mt.distribucija + mt.oiee).toFixed(2)),

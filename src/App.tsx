@@ -26,6 +26,8 @@ function Aplikacija() {
   const [ekran, setEkran] = useState<Ekran>(null);
   const { racuni } = evidencija;
   const brojilo = racuni[racuni.length - 1]?.brojilo;
+  // Broj brojila sa najnovijeg racuna koji ga ima
+  const brojBrojila = [...racuni].reverse().find((r) => r.brojBrojila)?.brojBrojila;
 
   const osvjezi = useCallback(async () => {
     setGreska('');
@@ -88,8 +90,11 @@ function Aplikacija() {
     <div className="min-h-screen">
       <header className="sigurno-gore sticky top-0 z-10 text-white" style={{ backgroundColor: theme.primary }}>
         <div className="flex items-center justify-between pl-4 pr-2 h-14">
-          <h1 className="flex items-center gap-2 font-semibold text-lg">
-            <Zap className="w-5 h-5" aria-hidden /> Računi Struja
+          <h1 className="flex items-center gap-2 font-semibold text-lg min-w-0">
+            <Zap className="w-5 h-5 shrink-0" aria-hidden /> Računi Struja
+            {brojBrojila && (
+              <span className="text-sm font-normal text-white/85 tabular-nums truncate">· brojilo {brojBrojila}</span>
+            )}
           </h1>
           <div className="flex items-center gap-1">
             <button

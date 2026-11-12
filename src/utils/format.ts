@@ -30,3 +30,12 @@ export const datumIspis = (vrijednost: string) => {
 
 // "2026-09-01" -> "Sep 26"
 export const kratakMjesecGodina = (datum: string) => `${kratakMjesec(datum)} ${datum.slice(2, 4)}`;
+
+export const decimalni = (vrijednost: number, decimale = 1) =>
+  new Intl.NumberFormat('de-DE', { maximumFractionDigits: decimale }).format(vrijednost);
+
+// "2026-11-12", "07:30" -> "12.11. 07:30"; bez vremena samo "12.11."
+export const trenutakKratko = (datum: string, vrijeme: string | null) => {
+  const [, mjesec, dan] = datum.split('-');
+  return vrijeme ? `${dan}.${mjesec}. ${vrijeme}` : `${dan}.${mjesec}.`;
+};
