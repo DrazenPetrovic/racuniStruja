@@ -321,13 +321,19 @@ function TabelaIntervala({ intervali }: { intervali: IntervalPotrosnje[] }) {
               <td className="text-right py-1.5 font-semibold">{decimalni(iv.kwhNaDan)}</td>
               <td className="text-right py-1.5 text-xs">
                 <Promjena procenat={iv.poredjenje?.promjena ?? null} kratko />
+                {iv.poredjenje && (
+                  <span className="block text-gray-500">
+                    {iv.poredjenje.slican ? 'kao' : 'prije'} {decimalni(iv.poredjenje.kwhNaDan)}
+                  </span>
+                )}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
       <p className="text-xs text-gray-500 mt-2">
-        * U odnosu na prethodni sličan razmak (jutro sa jutrom, veče sa večeri), jer se noć i dan troše različito.
+        * Promjena kWh/dan u odnosu na prethodni sličan razmak („kao"), npr. jutro sa jutrom i veče sa večeri, jer se noć i dan troše različito.
+        Ako sličnog nema, poredi se sa prethodnim unosom („prije").
       </p>
     </div>
   );

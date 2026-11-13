@@ -26,13 +26,35 @@ export const sacuvajOcitanje = async ({ datum, vrijeme, vt, mt }) =>
     );
   });
 
-export const nadjiOcitanje = async (id) =>
+const mapirajPoslano = (red) => ({
+  id: red.id,
+  // DATETIME dolazi kao "2026-11-29 18:05:00"
+  poslano: red.poslano.slice(0, 16),
+  vt: red.vt_stanje,
+  mt: red.mt_stanje,
+  primalac: red.primalac,
+});
+
+export const listaPoslanih = async () =>
   withConnection(async (connection) => {
     const [rows] = await connection.execute(
-      'SELECT id, datum, vrijeme, vt_stanje, mt_stanje FROM ocitanja WHERE id = ?',
-      [id],
+      'SELECT id, poslano, vt_stanje, mt_stanje, primalac FROM poslana_stanja ORDER BY poslano DESC, id DESC',
     );
-    return rows.length ? mapirajRed(rows[0]) : null;
+    return rows.map(mapirajPoslano);
+  });
+
+export const zabiljeziPoslano = async ({ poslano, vt, mt, primalac }) =>
+  withConnection(async (connection) => {
+    await connection.execute(
+      'INSERT INTO poslana_stanja (poslano, vt_stanje, mt_stanje, primalac) VALUES (?, ?, ?, ?)',
+      [poslano, vt, mt, primalac],
+    );
+  });
+
+export const obrisiPoslano = async (id) =>
+  withConnection(async (connection) => {
+    const [result] = await connection.execute('DELETE FROM poslana_stanja WHERE id = ?', [id]);
+    return result.affectedRows > 0;
   });
 
 export const obrisiOcitanje = async (id) =>

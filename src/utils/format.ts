@@ -10,6 +10,8 @@ const broj = (vrijednost: number, decimale: number) =>
   }).format(vrijednost);
 
 export const km = (vrijednost: number) => `${broj(vrijednost, 2)} KM`;
+// Iznos bez oznake valute, za kolone tabela gdje je "KM" u zaglavlju
+export const iznos = (vrijednost: number) => broj(vrijednost, 2);
 export const kwh = (vrijednost: number) => `${broj(vrijednost, 0)} kWh`;
 export const cijena = (vrijednost: number) => broj(vrijednost, 4);
 export const procenat = (vrijednost: number) => `${broj(vrijednost, 1)}%`;

@@ -71,6 +71,16 @@ CREATE TABLE IF NOT EXISTS ocitanja (
   UNIQUE KEY uq_trenutak (datum, vrijeme)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Stanja brojila poslana Elektrokrajini emailom, za poredjenje sa stanjem na racunu
+CREATE TABLE IF NOT EXISTS poslana_stanja (
+  id        INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  poslano   DATETIME NOT NULL,         -- lokalno vrijeme slanja
+  vt_stanje DECIMAL(12,2) NOT NULL,    -- skupa struja (AVT)
+  mt_stanje DECIMAL(12,2) NOT NULL,    -- jeftina struja (AMT)
+  primalac  VARCHAR(120) NOT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Poseban MySQL korisnik koji ima pristup samo ovoj bazi.
 -- Pokrenuti rucno, sa svojom lozinkom:
 --

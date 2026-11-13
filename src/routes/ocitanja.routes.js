@@ -6,7 +6,8 @@ const router = Router();
 
 router.get('/', verifyToken, OcitanjaController.lista);
 router.post('/', verifyToken, OcitanjaController.sacuvaj);
+router.post('/posalji', verifyToken, OcitanjaController.posalji);
+router.delete('/poslana/:id', verifyToken, OcitanjaController.obrisiPoslano);
 router.delete('/:id', verifyToken, OcitanjaController.obrisi);
-router.post('/:id/posalji', verifyToken, OcitanjaController.posalji);
 
 export default router;

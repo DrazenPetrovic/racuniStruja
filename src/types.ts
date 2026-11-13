@@ -122,7 +122,7 @@ export interface IntervalPotrosnje {
   kwhNaDan: number;
   vtNaDan: number;
   mtNaDan: number;
-  poredjenje: { od: Trenutak; do: Trenutak; kwhNaDan: number; promjena: number | null } | null;
+  poredjenje: { od: Trenutak; do: Trenutak; slican: boolean; kwhNaDan: number; promjena: number | null } | null;
 }
 
 export interface Kretanje {
@@ -135,8 +135,28 @@ export interface Kretanje {
   } | null;
 }
 
+// Stanje poslano Elektrokrajini i stanje koje je za taj period stiglo na racunu
+export interface PoslanoStanje {
+  id: number;
+  poslano: string; // "YYYY-MM-DD HH:MM"
+  vt: number;
+  mt: number;
+  primalac: string;
+  status: 'isto' | 'razlika' | 'ceka';
+  racun: {
+    id: number;
+    mjesec: string;
+    datum: string;
+    vt: number;
+    mt: number;
+    razlikaVt: number;
+    razlikaMt: number;
+  } | null;
+}
+
 export interface StanjeProcjene {
   ocitanja: Ocitanje[];
+  poslana: PoslanoStanje[];
   zadnjePoznato: { datum: string; vrijeme: string | null; vt: number; mt: number; izRacuna: boolean } | null;
   procjena: Procjena | null;
   kretanje: Kretanje | null;

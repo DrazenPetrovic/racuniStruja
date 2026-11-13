@@ -194,7 +194,26 @@ test('kretanje poredi jutro sa jutrom i vece sa vecerom', () => {
   assert.equal(dan2.kwhNaDan, 60);
   assert.equal(dan2.poredjenje.kwhNaDan, 40);
   assert.equal(dan2.poredjenje.promjena, 50);
-  assert.equal(noc.poredjenje, null);
+  assert.equal(dan2.poredjenje.slican, true);
+  // Za noc nema ranije noci, pa se poredi sa prethodnim danom
+  assert.equal(noc.poredjenje.slican, false);
+  assert.equal(noc.poredjenje.promjena, 50);
+});
+
+test('nepravilni razmaci (stari unosi bez vremena) ipak dobijaju poredjenje', () => {
+  // Stvarni unosi iz novembra 2026: 06., 10. i 11. bez vremena, 12. u 19:42
+  const oktobarStvarni = racun('2026-10-01', 1177, { datum: '2026-10-31', vt: 9049, mt: 9804 });
+  const k = kretanjePotrosnje([septembar, oktobarStvarni], [
+    { id: 2, datum: '2026-11-06', vrijeme: null, vt: 9234, mt: 10012 },
+    { id: 3, datum: '2026-11-10', vrijeme: null, vt: 9317.12, mt: 10163.62 },
+    { id: 4, datum: '2026-11-11', vrijeme: null, vt: 9333.56, mt: 10178.11 },
+    { id: 5, datum: '2026-11-12', vrijeme: '19:42', vt: 9363, mt: 10193 },
+  ]);
+  const zadnji = k.intervali[k.intervali.length - 1];
+  assert.equal(zadnji.poredjenje.slican, true);
+  assert.equal(zadnji.poredjenje.kwhNaDan, 30.9);
+  assert.ok(k.intervali.every((iv, i) => i === 0 || iv.poredjenje !== null));
+  assert.notEqual(k.poredjenje, null);
 });
 
 test('kretanje: zadnjih 7 dana prema 7 dana prije', () => {

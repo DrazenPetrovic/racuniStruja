@@ -1,5 +1,5 @@
 import type { Mjesec } from '../types';
-import { cijeliBroj, kratakMjesec, kwh, mjesecGodina } from '../utils/format';
+import { cijeliBroj, iznos, kratakMjesec, kwh, mjesecGodina } from '../utils/format';
 
 const MJESECI = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
 
@@ -11,6 +11,7 @@ export function PoredjenjeGodina({ racuni }: { racuni: Mjesec[] }) {
   const ova = zadnji.mjesec.slice(0, 4);
   const prosla = String(Number(ova) - 1);
   const poMjesecu = new Map(racuni.map((r) => [r.mjesec.slice(0, 7), r.ukupnoKwh]));
+  const racunKm = new Map(racuni.map((r) => [r.mjesec.slice(0, 7), r.ukupnoKm]));
   const zadnjiBroj = zadnji.mjesec.slice(5, 7);
   const isti = poMjesecu.get(`${prosla}-${zadnjiBroj}`);
 
@@ -29,23 +30,25 @@ export function PoredjenjeGodina({ racuni }: { racuni: Mjesec[] }) {
       <table className="w-full text-sm tabular-nums">
         <thead>
           <tr className="text-xs text-gray-500">
-            <th className="text-left font-normal pb-1 pl-1.5">Mjesec</th>
-            <th className="text-right font-normal pb-1">{prosla}</th>
-            <th className="text-right font-normal pb-1">{ova}</th>
-            <th className="text-right font-normal pb-1 pr-1.5">Razlika</th>
+            <th className="text-left font-normal pb-1 pl-1">Mjesec</th>
+            <th className="text-right font-normal pb-1 pl-1">{prosla}</th>
+            <th className="text-right font-normal pb-1 pl-1">{ova}</th>
+            <th className="text-right font-normal pb-1 pl-1">Razlika</th>
+            <th className="text-right font-normal pb-1 pl-1 pr-1">Račun {ova}<span className="block">KM</span></th>
           </tr>
         </thead>
         <tbody>
           {MJESECI.map((m) => {
             const prije = poMjesecu.get(`${prosla}-${m}`);
             const sada = poMjesecu.get(`${ova}-${m}`);
+            const racun = racunKm.get(`${ova}-${m}`);
             const razlika = prije !== undefined && sada !== undefined ? sada - prije : null;
             return (
               <tr key={m} className={`border-t border-gray-100 text-gray-900 ${m === zadnjiBroj ? 'bg-gray-100 font-semibold' : ''}`}>
-                <td className="py-1.5 pl-1.5">{kratakMjesec(`${ova}-${m}-01`)}</td>
-                <td className="text-right py-1.5">{prije !== undefined ? cijeliBroj(prije) : '–'}</td>
-                <td className="text-right py-1.5">{sada !== undefined ? cijeliBroj(sada) : '–'}</td>
-                <td className="text-right py-1.5 pr-1.5">
+                <td className="py-1.5 pl-1">{kratakMjesec(`${ova}-${m}-01`)}</td>
+                <td className="text-right py-1.5 pl-1">{prije !== undefined ? cijeliBroj(prije) : '–'}</td>
+                <td className="text-right py-1.5 pl-1">{sada !== undefined ? cijeliBroj(sada) : '–'}</td>
+                <td className="text-right py-1.5 pl-1">
                   {razlika !== null ? (
                     <>
                       {saPredznakom(razlika)}
@@ -53,6 +56,7 @@ export function PoredjenjeGodina({ racuni }: { racuni: Mjesec[] }) {
                     </>
                   ) : '–'}
                 </td>
+                <td className="text-right py-1.5 pl-1 pr-1 whitespace-nowrap">{racun !== undefined ? iznos(racun) : '–'}</td>
               </tr>
             );
           })}

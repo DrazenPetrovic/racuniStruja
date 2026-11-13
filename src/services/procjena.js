@@ -274,10 +274,13 @@ const razlikaSati = (a, b) => {
   return Math.min(r, 24 - r);
 };
 
-// Isti dio dana i slicna duzina, npr. jutro na jutro ili noc na noc
+// Razmak od skoro cijelog dana vec obuhvata i dan i noc, pa mu doba dana nije bitno
+const DANA_BEZ_DOBA_DANA = 0.75;
+
+// Slicna duzina, a kod kratkih razmaka i isti dio dana (jutro na jutro, vece na vece)
 const slicanInterval = (a, b) => {
   if (Math.abs(a.dana - b.dana) > Math.max(0.25, b.dana * 0.5)) return false;
-  if (b.dana >= 1.5) return true;
+  if (b.dana >= DANA_BEZ_DOBA_DANA) return true;
   return razlikaSati(a.krajSat, b.krajSat) <= SATI_SLICNOG_DOBA;
 };
 
@@ -306,7 +309,9 @@ export const kretanjePotrosnje = (racuni, rucna) => {
   }
 
   const intervali = svi.map((iv, j) => {
-    const slicni = svi.slice(0, j).reverse().find((x) => slicanInterval(x, iv));
+    // Kad nema slicnog razmaka, poredi se sa prethodnim, da svaki unos ima poredjenje
+    const nadjeniSlicni = svi.slice(0, j).reverse().find((x) => slicanInterval(x, iv));
+    const slicni = nadjeniSlicni ?? (j > 0 ? svi[j - 1] : null);
     const kwhNaDan = iv.kwh / iv.dana;
     return {
       od: iv.od,
@@ -323,6 +328,7 @@ export const kretanjePotrosnje = (racuni, rucna) => {
         ? {
             od: slicni.od,
             do: slicni.do,
+            slican: Boolean(nadjeniSlicni),
             kwhNaDan: zaokruzi(slicni.kwh / slicni.dana, 1),
             promjena: procenatPromjene(kwhNaDan, slicni.kwh / slicni.dana),
           }
@@ -330,7 +336,8 @@ export const kretanjePotrosnje = (racuni, rucna) => {
     };
   });
 
-  // Prozor od N dana prema N dana prije njega, ali samo ako u oba ima stvarnih ocitanja
+  // Prozor od N dana prema N dana prije njega. Razmak izmedju ocitanja smije biti najvise
+  // duplo duzi od prozora, inace bi poredjenje bilo samo prosjek mjesecnog racuna.
   const zadnji = oslonci[oslonci.length - 1].t;
   let poredjenje = null;
   for (const n of PROZORI_POREDJENJA) {
@@ -338,7 +345,7 @@ export const kretanjePotrosnje = (racuni, rucna) => {
     const sredina = stanjeU(oslonci, zadnji - n);
     const pocetak = stanjeU(oslonci, zadnji - 2 * n);
     if (!sada || !sredina || !pocetak) continue;
-    if (najduziRasponU(oslonci, zadnji - 2 * n, zadnji) > n) continue;
+    if (najduziRasponU(oslonci, zadnji - 2 * n, zadnji) > 2 * n) continue;
     const kwhSada = sada.ukupno - sredina.ukupno;
     const kwhPrije = sredina.ukupno - pocetak.ukupno;
     poredjenje = {

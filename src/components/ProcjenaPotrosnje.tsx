@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Info, Send, Trash2 } from 'lucide-react';
-import type { Procjena, StanjeProcjene } from '../types';
+import type { PoslanoStanje, Procjena, StanjeProcjene } from '../types';
 import { theme, zonaPoKljucu } from '../theme';
-import { obrisiOcitanje, posaljiStanjeEmailom, sacuvajOcitanje, ucitajProcjenu } from '../utils/api';
+import { obrisiOcitanje, obrisiPoslano, posaljiStanjeEmailom, sacuvajOcitanje, ucitajProcjenu } from '../utils/api';
 import { cijeliBroj, datumIspis, decimalni, km, kwh, mjesecGodina } from '../utils/format';
 import { Kartica, Oznaka, ZonaMjeseca } from './Kartica';
 import { GrafikTokMjeseca, KretanjeKartica } from './KretanjePotrosnje';
@@ -80,31 +80,16 @@ function TrakaCilja({ p }: { p: Procjena }) {
 
 const ZVANICNI_PRIMALAC = 'callcentar@elektrokrajina.com';
 
-// Salje zadnje upisano ocitanje Elektrokrajini, uz potvrdu prije slanja
-function SlanjeStanja({ stanje }: { stanje: StanjeProcjene }) {
-  const [salje, setSalje] = useState(false);
+// Slanje stanja Elektrokrajini. Modal nudi zadnje poznato stanje, a ono se moze izmijeniti prije slanja.
+function SlanjeStanja({ stanje, onNovoStanje }: { stanje: StanjeProcjene; onNovoStanje: (s: StanjeProcjene) => void }) {
   const [otvoren, setOtvoren] = useState(false);
-  const [poruka, setPoruka] = useState<{ uspjeh: boolean; tekst: string } | null>(null);
-  const zadnje = stanje.ocitanja[0];
+  const [poslano, setPoslano] = useState('');
+  const [napomene, setNapomene] = useState<string[]>([]);
   const s = stanje.slanje;
-  if (!zadnje || !s) return null;
+  if (!s) return null;
 
   const test = s.primalac !== ZVANICNI_PRIMALAC;
-  const opis = datumIVrijeme(zadnje.datum, zadnje.vrijeme);
-
-  const posalji = async () => {
-    setSalje(true);
-    setPoruka(null);
-    try {
-      const { primalac } = await posaljiStanjeEmailom(zadnje.id);
-      setPoruka({ uspjeh: true, tekst: `Stanje od ${opis} je poslano na ${primalac}.` });
-    } catch (err) {
-      setPoruka({ uspjeh: false, tekst: err instanceof Error ? err.message : 'Email nije poslan' });
-    } finally {
-      setSalje(false);
-      setOtvoren(false);
-    }
-  };
+  const z = stanje.zadnjePoznato;
 
   return (
     <Kartica naslov="Slanje stanja Elektrokrajini">
@@ -112,17 +97,14 @@ function SlanjeStanja({ stanje }: { stanje: StanjeProcjene }) {
         <p className="text-sm text-gray-600">Slanje emaila nije podešeno na serveru (podaci u .env).</p>
       ) : (
         <div className="space-y-2">
-          <p className="text-sm text-gray-700 tabular-nums">
-            Šalje se zadnje očitanje ({opis}): AVT <span className="font-semibold">{cijeliBroj(zadnje.vt)}</span>, AMT{' '}
-            <span className="font-semibold">{cijeliBroj(zadnje.mt)}</span>
-          </p>
           <p className="text-xs text-gray-500">Na: {s.primalac}</p>
           {test && (
             <p className="bg-amber-50 text-amber-900 rounded-xl px-3 py-2 text-xs">Test način: email ne ide u Elektrokrajinu.</p>
           )}
-          {poruka && (
-            <p className={`rounded-xl px-3 py-2.5 text-sm ${poruka.uspjeh ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>{poruka.tekst}</p>
-          )}
+          {poslano && <p className="rounded-xl px-3 py-2.5 text-sm bg-green-50 text-green-800">{poslano}</p>}
+          {napomene.map((n) => (
+            <p key={n} className="bg-amber-50 text-amber-900 rounded-xl px-3 py-2 text-xs">{n}</p>
+          ))}
           {!s.dozvoljeno && (
             <p className="bg-gray-100 text-gray-700 rounded-xl px-3 py-2 text-xs">
               Slanje je moguće samo od {s.period.od}. u mjesecu do {s.period.do}. u sljedećem mjesecu.
@@ -131,10 +113,11 @@ function SlanjeStanja({ stanje }: { stanje: StanjeProcjene }) {
           <button
             type="button"
             onClick={() => {
-              setPoruka(null);
+              setPoslano('');
+              setNapomene([]);
               setOtvoren(true);
             }}
-            disabled={salje || !s.dozvoljeno}
+            disabled={!s.dozvoljeno}
             className="w-full flex items-center justify-center gap-2 font-semibold py-3 rounded-xl border-2 disabled:opacity-60 active:opacity-80"
             style={{ borderColor: theme.primary, color: theme.primary }}
           >
@@ -144,15 +127,17 @@ function SlanjeStanja({ stanje }: { stanje: StanjeProcjene }) {
         </div>
       )}
       {otvoren && (
-        <PotvrdaSlanja
+        <ModalSlanja
           primalac={s.primalac ?? ''}
           test={test}
           brojBrojila={s.brojBrojila}
-          opis={opis}
-          vt={zadnje.vt}
-          mt={zadnje.mt}
-          salje={salje}
-          onPotvrdi={posalji}
+          zadnje={z}
+          onPoslano={(tekst, odgovor) => {
+            setPoslano(tekst);
+            setNapomene(odgovor.napomene ?? []);
+            if (odgovor.ocitanja) onNovoStanje(odgovor as StanjeProcjene);
+            setOtvoren(false);
+          }}
           onOdustani={() => setOtvoren(false)}
         />
       )}
@@ -160,23 +145,25 @@ function SlanjeStanja({ stanje }: { stanje: StanjeProcjene }) {
   );
 }
 
-// Modal na sredini ekrana sa upozorenjem prije slanja emaila
-function PotvrdaSlanja({ primalac, test, brojBrojila, opis, vt, mt, salje, onPotvrdi, onOdustani }: {
+// Modal na sredini ekrana: stanja se mogu izmijeniti, pa se salju tek na potvrdu
+function ModalSlanja({ primalac, test, brojBrojila, zadnje, onPoslano, onOdustani }: {
   primalac: string;
   test: boolean;
   brojBrojila: string | null;
-  opis: string;
-  vt: number;
-  mt: number;
-  salje: boolean;
-  onPotvrdi: () => void;
+  zadnje: StanjeProcjene['zadnjePoznato'];
+  onPoslano: (tekst: string, odgovor: Awaited<ReturnType<typeof posaljiStanjeEmailom>>) => void;
   onOdustani: () => void;
 }) {
-  const odustaniRef = useRef<HTMLButtonElement>(null);
+  const [skupa, setSkupa] = useState(zadnje ? String(zadnje.vt) : '');
+  const [jeftina, setJeftina] = useState(zadnje ? String(zadnje.mt) : '');
+  const [salje, setSalje] = useState(false);
+  const [greska, setGreska] = useState('');
+  const prvoPoljeRef = useRef<HTMLInputElement>(null);
 
-  // Pri otvaranju: fokus na "Odustani" i stranica ispod se ne pomjera
+  // Pri otvaranju: fokus na prvo polje i stranica ispod se ne pomjera
   useEffect(() => {
-    odustaniRef.current?.focus();
+    prvoPoljeRef.current?.focus();
+    prvoPoljeRef.current?.select();
     const prijePomjeranja = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
@@ -192,10 +179,45 @@ function PotvrdaSlanja({ primalac, test, brojBrojila, opis, vt, mt, salje, onPot
     return () => window.removeEventListener('keydown', naTipku);
   }, [salje, onOdustani]);
 
-  const stanjeRed = (oznaka: string, naziv: string, vrijednost: number, boja: string) => (
-    <div className="flex items-center justify-between rounded-xl px-3 py-2.5 border-l-4" style={{ borderColor: boja, backgroundColor: `${boja}14` }}>
-      <span className="text-sm text-gray-700">{naziv} <span className="font-semibold">({oznaka})</span></span>
-      <span className="text-2xl font-bold text-gray-900 tabular-nums">{cijeliBroj(vrijednost)}</span>
+  const vt = parsirajStanje(skupa);
+  const mt = parsirajStanje(jeftina);
+  const ispravno = skupa.trim() !== '' && jeftina.trim() !== '' && Number.isFinite(vt) && Number.isFinite(mt) && vt >= 0 && mt >= 0;
+  // Brojilo ne ide unazad, pa je manje stanje vjerovatno greska u kucanju
+  const manjeOdZadnjeg = ispravno && zadnje !== null && (vt < zadnje.vt || mt < zadnje.mt);
+
+  const posalji = async () => {
+    if (!ispravno) {
+      setGreska('Unesi oba stanja kao brojeve.');
+      return;
+    }
+    setSalje(true);
+    setGreska('');
+    try {
+      const odgovor = await posaljiStanjeEmailom({ vt, mt });
+      onPoslano(`Poslano na ${odgovor.primalac}: AVT ${cijeliBroj(vt)}, AMT ${cijeliBroj(mt)}.`, odgovor);
+    } catch (err) {
+      setGreska(err instanceof Error ? err.message : 'Email nije poslan');
+      setSalje(false);
+    }
+  };
+
+  const polje = (id: string, oznaka: string, naziv: string, boja: string, vrijednost: string, promijeni: (v: string) => void, ref?: React.Ref<HTMLInputElement>) => (
+    <div className="rounded-xl px-3 py-2.5 border-l-4" style={{ borderColor: boja, backgroundColor: `${boja}14` }}>
+      <label htmlFor={id} className="block text-sm text-gray-700 mb-1">
+        {naziv} <span className="font-semibold">({oznaka})</span>
+      </label>
+      <input
+        id={id}
+        ref={ref}
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        value={vrijednost}
+        onChange={(e) => promijeni(e.target.value)}
+        disabled={salje}
+        className="w-full px-3 py-2 text-2xl font-bold text-gray-900 bg-white border-2 rounded-xl focus:outline-none tabular-nums disabled:opacity-60"
+        style={{ borderColor: boja }}
+      />
     </div>
   );
 
@@ -205,34 +227,36 @@ function PotvrdaSlanja({ primalac, test, brojBrojila, opis, vt, mt, salje, onPot
       onClick={() => !salje && onOdustani()}
     >
       <div
-        role="alertdialog"
+        role="dialog"
         aria-modal="true"
-        aria-labelledby="potvrda-naslov"
-        aria-describedby="potvrda-opis"
-        className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-5 space-y-3"
+        aria-labelledby="slanje-naslov"
+        aria-describedby="slanje-opis"
+        className="w-full max-w-sm max-h-full overflow-y-auto bg-white rounded-2xl shadow-xl p-5 space-y-3"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 text-amber-700">
           <AlertTriangle className="w-6 h-6 shrink-0" aria-hidden />
-          <h2 id="potvrda-naslov" className="text-lg font-bold text-gray-900">Poslati stanje brojila?</h2>
+          <h2 id="slanje-naslov" className="text-lg font-bold text-gray-900">Poslati stanje brojila?</h2>
         </div>
-        <p id="potvrda-opis" className="text-sm text-gray-700">
-          Email se šalje odmah i ne može se povući. Provjeri stanja prije slanja.
+        <p id="slanje-opis" className="text-sm text-gray-700">
+          Ponuđeno je zadnje poznato stanje{zadnje ? ` (${datumIVrijeme(zadnje.datum, zadnje.vrijeme)})` : ''}. Izmijeni ga ako treba. Email se šalje odmah i ne može se povući.
         </p>
 
         <div className="space-y-2">
-          {stanjeRed('AVT', 'Skupa', vt, theme.skupa)}
-          {stanjeRed('AMT', 'Jeftina', mt, theme.jeftina)}
+          {polje('slanje-avt', 'AVT', 'Skupa', theme.skupa, skupa, setSkupa, prvoPoljeRef)}
+          {polje('slanje-amt', 'AMT', 'Jeftina', theme.jeftina, jeftina, setJeftina)}
         </div>
+
+        {manjeOdZadnjeg && zadnje && (
+          <p className="bg-amber-50 text-amber-900 rounded-xl px-3 py-2 text-xs tabular-nums">
+            Stanje je manje od zadnjeg poznatog (AVT {cijeliBroj(zadnje.vt)}, AMT {cijeliBroj(zadnje.mt)}). Provjeri da nije greška.
+          </p>
+        )}
 
         <dl className="text-sm space-y-0.5">
           <div className="flex justify-between gap-3">
             <dt className="text-gray-500">Brojilo</dt>
             <dd className="font-semibold text-gray-900 tabular-nums">{brojBrojila}</dd>
-          </div>
-          <div className="flex justify-between gap-3">
-            <dt className="text-gray-500">Očitanje</dt>
-            <dd className="text-gray-900">{opis}</dd>
           </div>
           <div className="flex justify-between gap-3">
             <dt className="text-gray-500 shrink-0">Primalac</dt>
@@ -243,10 +267,10 @@ function PotvrdaSlanja({ primalac, test, brojBrojila, opis, vt, mt, salje, onPot
         {test && (
           <p className="bg-amber-50 text-amber-900 rounded-xl px-3 py-2 text-xs">Test način: email ne ide u Elektrokrajinu.</p>
         )}
+        {greska && <p className="bg-red-50 text-red-800 rounded-xl px-3 py-2.5 text-sm">{greska}</p>}
 
         <div className="grid grid-cols-2 gap-2 pt-1">
           <button
-            ref={odustaniRef}
             type="button"
             onClick={onOdustani}
             disabled={salje}
@@ -256,8 +280,8 @@ function PotvrdaSlanja({ primalac, test, brojBrojila, opis, vt, mt, salje, onPot
           </button>
           <button
             type="button"
-            onClick={onPotvrdi}
-            disabled={salje}
+            onClick={posalji}
+            disabled={salje || !ispravno}
             className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white disabled:opacity-60 active:opacity-80"
             style={{ backgroundColor: theme.primary }}
           >
@@ -267,6 +291,81 @@ function PotvrdaSlanja({ primalac, test, brojBrojila, opis, vt, mt, salje, onPot
         </div>
       </div>
     </div>
+  );
+}
+
+const razlikaTekst = (razlika: number) => (razlika > 0 ? `+${cijeliBroj(razlika)}` : cijeliBroj(razlika));
+
+// Poslana stanja i sta je za taj period stiglo na racunu
+function PoslanaStanja({ poslana, onNovoStanje }: { poslana: PoslanoStanje[]; onNovoStanje: (s: StanjeProcjene) => void }) {
+  const [greska, setGreska] = useState('');
+
+  const obrisi = async (p: PoslanoStanje) => {
+    if (!window.confirm(`Obrisati zapis o slanju od ${datumIspis(p.poslano.slice(0, 10))}? Email ostaje poslan.`)) return;
+    setGreska('');
+    try {
+      onNovoStanje(await obrisiPoslano(p.id));
+    } catch (err) {
+      setGreska(err instanceof Error ? err.message : 'Greška pri brisanju');
+    }
+  };
+
+  return (
+    <Kartica naslov="Poslana stanja">
+      {greska && <p className="bg-red-50 text-red-800 rounded-xl px-3 py-2.5 text-sm mb-2">{greska}</p>}
+      <ul className="space-y-2">
+        {poslana.map((p) => {
+          const test = p.primalac !== ZVANICNI_PRIMALAC;
+          const opis = `${datumIspis(p.poslano.slice(0, 10))} u ${p.poslano.slice(11, 16)}`;
+          return (
+            <li key={p.id} className="border border-gray-100 rounded-xl p-3 text-sm tabular-nums">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-gray-900">
+                    Poslano {opis}
+                    {test && <span className="ml-1.5 text-[10px] font-semibold uppercase bg-amber-100 text-amber-900 rounded px-1.5 py-0.5">test</span>}
+                  </p>
+                  <p className="text-gray-700">AVT {cijeliBroj(p.vt)} · AMT {cijeliBroj(p.mt)}</p>
+                </div>
+                <button type="button" onClick={() => obrisi(p)} aria-label={`Obriši zapis o slanju ${opis}`} className="p-2 -m-1 text-gray-500">
+                  <Trash2 className="w-4 h-4" aria-hidden />
+                </button>
+              </div>
+
+              {p.status === 'ceka' && (
+                <p className="mt-2 flex items-center gap-1.5 text-gray-600">
+                  <Info className="w-4 h-4 shrink-0" aria-hidden /> Čeka račun za ovaj period.
+                </p>
+              )}
+              {p.status === 'isto' && p.racun && (
+                <p className="mt-2 flex items-center gap-1.5 text-green-800 font-semibold">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden />
+                  Na računu za {mjesecGodina(p.racun.mjesec).toLowerCase()} je isto stanje.
+                </p>
+              )}
+              {p.status === 'razlika' && p.racun && (
+                <div className="mt-2 bg-red-50 text-red-900 rounded-lg px-2.5 py-2">
+                  <p className="flex items-center gap-1.5 font-semibold">
+                    <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden />
+                    Na računu za {mjesecGodina(p.racun.mjesec).toLowerCase()} je drugo stanje
+                  </p>
+                  <p className="text-xs mt-1">Stanje na računu od {datumIspis(p.racun.datum)}:</p>
+                  <p>
+                    AVT {cijeliBroj(p.racun.vt)}
+                    {p.racun.razlikaVt !== 0 && <span className="font-semibold"> ({razlikaTekst(p.racun.razlikaVt)})</span>}
+                    {' · '}AMT {cijeliBroj(p.racun.mt)}
+                    {p.racun.razlikaMt !== 0 && <span className="font-semibold"> ({razlikaTekst(p.racun.razlikaMt)})</span>}
+                  </p>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-xs text-gray-500 mt-2">
+        Poslano stanje se poredi sa računom čiji je datum očitanja najbliži danu slanja. Razlika u zagradi je račun minus poslano.
+      </p>
+    </Kartica>
   );
 }
 
@@ -461,7 +560,8 @@ export function ProcjenaPotrosnje() {
         </form>
       </Kartica>
 
-      {stanje && <SlanjeStanja stanje={stanje} />}
+      {stanje && <SlanjeStanja stanje={stanje} onNovoStanje={setStanje} />}
+      {stanje && stanje.poslana?.length > 0 && <PoslanaStanja poslana={stanje.poslana} onNovoStanje={setStanje} />}
 
       {stanje?.procjena?.nedostajePocetak && (
         <p className="bg-amber-50 text-amber-900 rounded-xl px-3 py-2.5 text-sm">

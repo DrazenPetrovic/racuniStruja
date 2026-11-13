@@ -49,7 +49,7 @@ export function Pregled({ evidencija, onOtvoriMjesec }: PregledProps) {
         <TabelaMjeseci racuni={racuni} onOtvoriMjesec={onOtvoriMjesec} />
       </Kartica>
 
-      <Kartica naslov="Poređenje sa prošlom godinom (kWh)">
+      <Kartica naslov="Poređenje sa prošlom godinom (kWh i KM)">
         <PoredjenjeGodina racuni={racuni} />
       </Kartica>
 
