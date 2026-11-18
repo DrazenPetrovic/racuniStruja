@@ -5,6 +5,9 @@ export const theme = {
   skupa: '#785E9E',
   jeftina: '#1B998B',
   ukupno: '#374151',
+  // Podjela potrosnje na toplotnu pumpu i ostatak kuce
+  pumpa: '#B45309',
+  kuca: '#9CA5B4',
 };
 
 // Bijela zona je namjerno neutralno siva, a svaka zona uvijek ima i tekstualnu oznaku

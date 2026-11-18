@@ -1,8 +1,14 @@
 const GRANICA_BIJELE = 500;
 const GRANICA_PLAVE = 1500;
 
-// Toplotna pumpa grije od oktobra do maja. Jun-septembar daju osnovnu potrosnju kuce.
+// Toplotna pumpa grije od oktobra do maja, a od juna do septembra hladi.
+// Sanitarnu vodu ne grije (zaseban bojler), pa je kuca bez pumpe najbliza septembru,
+// kad nema ni grijanja ni vecih vrucina.
 const MJESECI_GRIJANJA = [10, 11, 12, 1, 2, 3, 4, 5];
+const MJESECI_HLADJENJA = [6, 7, 8, 9];
+const MJESECI_BEZ_PUMPE = [9];
+// Zimi kuca i bez pumpe trosi vise: bojler grije hladniju vodu, a duze gori svjetlo
+const ZIMSKI_DODATAK_KWH = 60;
 
 const zaokruzi = (broj, decimale = 4) => Number(broj.toFixed(decimale));
 
@@ -33,13 +39,33 @@ const nazivSezone = (mjesec) => {
   return `${pocetak}/${String(pocetak + 1).slice(2)}`;
 };
 
-// Racun ne odvaja toplotnu pumpu od ostale potrosnje, pa je grijanje procjena:
-// potrosnja u mjesecima grijanja iznad prosjeka mjeseci bez grijanja
+// Racun ne odvaja toplotnu pumpu od ostale potrosnje, pa su grijanje i hladjenje procjena:
+// potrosnja iznad osnovne potrosnje kuce. Osnova je prosjek septembara, a bez septembra
+// najmanji ljetni mjesec (u njemu je hladjenja najmanje).
 const izracunajOsnovnu = (mjeseci) => {
-  const bezGrijanja = mjeseci.filter((m) => !MJESECI_GRIJANJA.includes(brojMjeseca(m.mjesec)));
-  if (bezGrijanja.length === 0) return null;
-  const zbir = bezGrijanja.reduce((z, m) => z + m.ukupnoKwh, 0);
-  return Math.round(zbir / bezGrijanja.length);
+  const bezPumpe = mjeseci.filter((m) => MJESECI_BEZ_PUMPE.includes(brojMjeseca(m.mjesec)));
+  if (bezPumpe.length > 0) {
+    return Math.round(bezPumpe.reduce((z, m) => z + m.ukupnoKwh, 0) / bezPumpe.length);
+  }
+  const ljetni = mjeseci.filter((m) => MJESECI_HLADJENJA.includes(brojMjeseca(m.mjesec)));
+  return ljetni.length > 0 ? Math.min(...ljetni.map((m) => m.ukupnoKwh)) : null;
+};
+
+const iznadOsnove = (kwh, osnova) => (osnova === null ? null : Math.max(0, kwh - osnova));
+
+// Ljeto se vodi po godini: "2026" za jun-septembar 2026
+const sabiranjePoPeriodu = (mjeseci, uPeriodu, naziv, kljuc) => {
+  const periodi = new Map();
+  for (const m of mjeseci.filter((r) => uPeriodu(brojMjeseca(r.mjesec)))) {
+    const ime = naziv(m.mjesec);
+    const s = periodi.get(ime) ?? { naziv: ime, brojMjeseci: 0, ukupnoKwh: 0, [kljuc]: null, ukupnoKm: 0 };
+    s.brojMjeseci += 1;
+    s.ukupnoKwh += m.ukupnoKwh;
+    s.ukupnoKm = zaokruzi(s.ukupnoKm + m.ukupnoKm, 2);
+    if (m[kljuc] !== null) s[kljuc] = (s[kljuc] ?? 0) + m[kljuc];
+    periodi.set(ime, s);
+  }
+  return [...periodi.values()].reverse();
 };
 
 // Prima mjesece iz baze, vraca ih od najstarijeg ka najnovijem sa izvedenim podacima
@@ -54,10 +80,11 @@ export const dopuniMjesece = (redovi) => {
   }));
 
   const osnovnaPotrosnja = izracunajOsnovnu(saZbirom);
+  const osnovnaZimi = osnovnaPotrosnja === null ? null : osnovnaPotrosnja + ZIMSKI_DODATAK_KWH;
 
   const racuni = saZbirom.map((m) => {
     const stopa = m.pdvStopa / 100;
-    const uSezoni = MJESECI_GRIJANJA.includes(brojMjeseca(m.mjesec));
+    const broj = brojMjeseca(m.mjesec);
     return {
       ...m,
       ...zonaZaPotrosnju(m.ukupnoKwh),
@@ -70,20 +97,13 @@ export const dopuniMjesece = (redovi) => {
       mt: tarifa(m.zone.mt, m.mtMrezaKm, stopa, m.ukupnoKwh),
       fiksnoSaPdv: zaokruzi(m.fiksnoKm * (1 + stopa), 2),
       prosjekKmKwh: m.ukupnoKwh > 0 ? zaokruzi(m.ukupnoKm / m.ukupnoKwh) : 0,
-      grijanjeKwh: uSezoni && osnovnaPotrosnja !== null ? Math.max(0, m.ukupnoKwh - osnovnaPotrosnja) : null,
+      grijanjeKwh: MJESECI_GRIJANJA.includes(broj) ? iznadOsnove(m.ukupnoKwh, osnovnaZimi) : null,
+      hladjenjeKwh: MJESECI_HLADJENJA.includes(broj) ? iznadOsnove(m.ukupnoKwh, osnovnaPotrosnja) : null,
     };
   });
 
-  const sezone = new Map();
-  for (const m of racuni.filter((r) => MJESECI_GRIJANJA.includes(brojMjeseca(r.mjesec)))) {
-    const naziv = nazivSezone(m.mjesec);
-    const s = sezone.get(naziv) ?? { naziv, brojMjeseci: 0, ukupnoKwh: 0, grijanjeKwh: null, ukupnoKm: 0 };
-    s.brojMjeseci += 1;
-    s.ukupnoKwh += m.ukupnoKwh;
-    s.ukupnoKm = zaokruzi(s.ukupnoKm + m.ukupnoKm, 2);
-    if (m.grijanjeKwh !== null) s.grijanjeKwh = (s.grijanjeKwh ?? 0) + m.grijanjeKwh;
-    sezone.set(naziv, s);
-  }
+  const sezone = sabiranjePoPeriodu(racuni, (b) => MJESECI_GRIJANJA.includes(b), nazivSezone, 'grijanjeKwh');
+  const ljeta = sabiranjePoPeriodu(racuni, (b) => MJESECI_HLADJENJA.includes(b), (mjesec) => mjesec.slice(0, 4), 'hladjenjeKwh');
 
-  return { racuni, osnovnaPotrosnja, sezone: [...sezone.values()].reverse() };
+  return { racuni, osnovnaPotrosnja, osnovnaZimi, sezone, ljeta };
 };

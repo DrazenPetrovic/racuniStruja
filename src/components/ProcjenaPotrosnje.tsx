@@ -6,6 +6,7 @@ import { obrisiOcitanje, obrisiPoslano, posaljiStanjeEmailom, sacuvajOcitanje, u
 import { cijeliBroj, datumIspis, decimalni, km, kwh, mjesecGodina } from '../utils/format';
 import { Kartica, Oznaka, ZonaMjeseca } from './Kartica';
 import { GrafikTokMjeseca, KretanjeKartica } from './KretanjePotrosnje';
+import { PumpaKartica } from './PumpaKartica';
 
 const SKALA_KWH = 2000;
 
@@ -572,6 +573,8 @@ export function ProcjenaPotrosnje() {
 
       {stanje?.kretanje && stanje.ocitanja.length > 0 && <KretanjeKartica k={stanje.kretanje} />}
 
+      {stanje?.pumpa && <PumpaKartica p={stanje.pumpa} />}
+
       {stanje && stanje.ocitanja.length > 0 && (
         <Kartica naslov="Upisana očitanja">
           <table className="w-full text-sm tabular-nums">
@@ -584,23 +587,38 @@ export function ProcjenaPotrosnje() {
               </tr>
             </thead>
             <tbody>
-              {stanje.ocitanja.map((o) => (
-                <tr key={o.id} className="border-t border-gray-100 text-gray-900">
-                  <td>
+              {stanje.ocitanja.map((o, i) => {
+                // Lista ide od najnovijeg, pa je prethodno ocitanje sljedeci red
+                const prethodno = stanje.ocitanja[i + 1];
+                const razlika = (sada: number, prije?: number) =>
+                  prije === undefined ? null : (
+                    <span className="block text-xs text-gray-500">{sada - prije >= 0 ? '+' : '−'}{cijeliBroj(Math.abs(sada - prije))}</span>
+                  );
+                return (
+                <tr key={o.id} className="border-t border-gray-100 text-gray-900 align-top">
+                  <td className="py-1">
                     {datumIspis(o.datum)}
                     {o.vrijeme && <span className="text-gray-500"> {o.vrijeme}</span>}
                   </td>
-                  <td className="text-right">{cijeliBroj(o.vt)}</td>
-                  <td className="text-right">{cijeliBroj(o.mt)}</td>
+                  <td className="text-right py-1">
+                    {cijeliBroj(o.vt)}
+                    {razlika(o.vt, prethodno?.vt)}
+                  </td>
+                  <td className="text-right py-1">
+                    {cijeliBroj(o.mt)}
+                    {razlika(o.mt, prethodno?.mt)}
+                  </td>
                   <td className="text-right">
                     <button type="button" onClick={() => obrisi(o.id, datumIVrijeme(o.datum, o.vrijeme))} aria-label={`Obriši očitanje ${datumIVrijeme(o.datum, o.vrijeme)}`} className="p-2 -mr-2 text-gray-500">
                       <Trash2 className="w-4 h-4" aria-hidden />
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
+          <p className="text-xs text-gray-500 mt-2">Broj ispod stanja je razlika u odnosu na prethodno upisano očitanje (trenutno minus prethodno), u kWh.</p>
         </Kartica>
       )}
     </div>

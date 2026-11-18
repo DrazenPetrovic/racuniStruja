@@ -103,6 +103,11 @@ export function MjesecDetalj({ mjesec: m, onNazad, onObrisan }: MjesecDetaljProp
               Grijanje (procjena): <span className="font-semibold">{kwh(m.grijanjeKwh)}</span>
             </p>
           )}
+          {m.hladjenjeKwh !== null && (
+            <p className="text-sm text-gray-800 mt-3 tabular-nums">
+              Hlađenje (procjena): <span className="font-semibold">{kwh(m.hladjenjeKwh)}</span>
+            </p>
+          )}
         </Kartica>
 
         <Kartica naslov="Skupa i jeftina struja">

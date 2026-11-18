@@ -7,13 +7,54 @@ import { GrafikTarife, GrafikUkupno } from './PotrosnjaGrafik';
 import { TabelaMjeseci } from './TabelaMjeseci';
 import { PoredjenjeGodina } from './PoredjenjeGodina';
 
+interface PeriodPumpe {
+  naziv: string;
+  brojMjeseci: number;
+  ukupnoKwh: number;
+  pumpaKwh: number | null;
+  ukupnoKm: number;
+}
+
+function TabelaPumpe({ naslov, periodi }: { naslov: string; periodi: PeriodPumpe[] }) {
+  return (
+    <table className="w-full text-sm tabular-nums mb-2">
+      <thead>
+        <tr className="text-xs text-gray-500">
+          <th className="text-left font-normal pb-1">{naslov}</th>
+          <th className="text-right font-normal pb-1">Ukupno</th>
+          <th className="text-right font-normal pb-1">Pumpa ≈</th>
+          <th className="text-right font-normal pb-1">Iznos</th>
+        </tr>
+      </thead>
+      <tbody>
+        {periodi.map((p) => (
+          <tr key={p.naziv} className="border-t border-gray-100 text-gray-900">
+            <td className="py-1.5">
+              {p.naziv}
+              <span className="block text-xs text-gray-500">{p.brojMjeseci} mj.</span>
+            </td>
+            <td className="text-right py-1.5">{kwh(p.ukupnoKwh)}</td>
+            <td className="text-right py-1.5">
+              <span className="font-semibold">{p.pumpaKwh !== null ? kwh(p.pumpaKwh) : '–'}</span>
+              {p.pumpaKwh !== null && p.ukupnoKwh > 0 && (
+                <span className="block text-xs text-gray-500">{Math.round((p.pumpaKwh / p.ukupnoKwh) * 100)}%</span>
+              )}
+            </td>
+            <td className="text-right py-1.5">{km(p.ukupnoKm)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 interface PregledProps {
   evidencija: Evidencija;
   onOtvoriMjesec: (id: number) => void;
 }
 
 export function Pregled({ evidencija, onOtvoriMjesec }: PregledProps) {
-  const { racuni, osnovnaPotrosnja, sezone } = evidencija;
+  const { racuni, osnovnaPotrosnja, osnovnaZimi, sezone, ljeta } = evidencija;
   const zadnji = racuni[racuni.length - 1];
   const prethodni = racuni[racuni.length - 2];
 
@@ -53,39 +94,21 @@ export function Pregled({ evidencija, onOtvoriMjesec }: PregledProps) {
         <PoredjenjeGodina racuni={racuni} />
       </Kartica>
 
-      <Kartica naslov="Grijanje (toplotna pumpa)">
-        {sezone.length > 0 && (
-          <table className="w-full text-sm tabular-nums mb-2">
-            <thead>
-              <tr className="text-xs text-gray-500">
-                <th className="text-left font-normal pb-1">Sezona</th>
-                <th className="text-right font-normal pb-1">Ukupno</th>
-                <th className="text-right font-normal pb-1">Grijanje ≈</th>
-                <th className="text-right font-normal pb-1">Iznos</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sezone.map((s) => (
-                <tr key={s.naziv} className="border-t border-gray-100 text-gray-900">
-                  <td className="py-1.5">
-                    {s.naziv}
-                    <span className="block text-xs text-gray-500">{s.brojMjeseci} mj.</span>
-                  </td>
-                  <td className="text-right py-1.5">{kwh(s.ukupnoKwh)}</td>
-                  <td className="text-right py-1.5 font-semibold">{s.grijanjeKwh !== null ? kwh(s.grijanjeKwh) : '–'}</td>
-                  <td className="text-right py-1.5">{km(s.ukupnoKm)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {sezone.length === 0 && (
+      <Kartica naslov="Toplotna pumpa (grijanje i hlađenje)">
+        {sezone.length > 0 ? (
+          <TabelaPumpe naslov="Grijanje (okt–maj)" periodi={sezone.map((s) => ({ ...s, pumpaKwh: s.grijanjeKwh }))} />
+        ) : (
           <p className="text-sm text-gray-700 mb-2">Još nema uvezenih mjeseci sa grijanjem (oktobar–maj).</p>
         )}
+        {ljeta.length > 0 && (
+          <div className="mt-3">
+            <TabelaPumpe naslov="Hlađenje (jun–sep)" periodi={ljeta.map((l) => ({ ...l, pumpaKwh: l.hladjenjeKwh }))} />
+          </div>
+        )}
         <p className="text-xs text-gray-500">
-          {osnovnaPotrosnja !== null
-            ? `Procjena: potrošnja od oktobra do maja iznad osnovne potrošnje od ${kwh(osnovnaPotrosnja)} (prosjek uvezenih mjeseci jun–septembar). Račun ne odvaja toplotnu pumpu.`
-            : 'Procjena traži bar jedan uvezen mjesec jun–septembar, kao osnovnu potrošnju bez grijanja. Račun ne odvaja toplotnu pumpu.'}
+          {osnovnaPotrosnja !== null && osnovnaZimi !== null
+            ? `Procjena: kuća bez pumpe troši oko ${kwh(osnovnaPotrosnja)} mjesečno (septembar, bez grijanja i hlađenja), a zimi oko ${kwh(osnovnaZimi)}, jer bojler grije hladniju vodu i duže gori svjetlo. Sve iznad toga se pripisuje pumpi. Račun ne odvaja toplotnu pumpu.`
+            : 'Procjena traži bar jedan uvezen mjesec jun–septembar, kao osnovnu potrošnju kuće bez pumpe. Račun ne odvaja toplotnu pumpu.'}
         </p>
       </Kartica>
 

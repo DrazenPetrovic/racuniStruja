@@ -16,7 +16,7 @@ type Kartica = 'pregled' | 'procjena' | 'mjeseci';
 // Otvoreni ekran je u istoriji browsera da Android dugme "nazad" zatvori njega, a ne aplikaciju
 type Ekran = { vrsta: 'mjesec'; id: number } | { vrsta: 'uvoz' } | null;
 
-const PRAZNA_EVIDENCIJA: Evidencija = { racuni: [], osnovnaPotrosnja: null, sezone: [] };
+const PRAZNA_EVIDENCIJA: Evidencija = { racuni: [], osnovnaPotrosnja: null, osnovnaZimi: null, sezone: [], ljeta: [] };
 
 function Aplikacija() {
   const [evidencija, setEvidencija] = useState<Evidencija>(PRAZNA_EVIDENCIJA);

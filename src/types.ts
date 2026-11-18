@@ -37,6 +37,7 @@ export interface Mjesec {
   fiksnoSaPdv: number;
   prosjekKmKwh: number;
   grijanjeKwh: number | null;
+  hladjenjeKwh: number | null;
 }
 
 export interface Sezona {
@@ -47,10 +48,20 @@ export interface Sezona {
   ukupnoKm: number;
 }
 
+export interface Ljeto {
+  naziv: string;
+  brojMjeseci: number;
+  ukupnoKwh: number;
+  hladjenjeKwh: number | null;
+  ukupnoKm: number;
+}
+
 export interface Evidencija {
   racuni: Mjesec[];
   osnovnaPotrosnja: number | null;
+  osnovnaZimi: number | null;
   sezone: Sezona[];
+  ljeta: Ljeto[];
 }
 
 export interface Ocitanje {
@@ -154,7 +165,40 @@ export interface PoslanoStanje {
   } | null;
 }
 
+// Razmak (racun za mjesec ili razmak izmedju dva unosa) podijeljen na pumpu i ostatak kuce
+export interface RazmakPumpe {
+  mjesec: string | null;
+  od: Trenutak;
+  do: Trenutak;
+  izRacuna: boolean;
+  dana: number;
+  temperatura: number;
+  kwh: number;
+  pumpaKwh: number;
+  kucaKwh: number;
+  ocekivanoKwh: number;
+}
+
+export interface ProcjenaPumpe {
+  greska?: string;
+  model?: {
+    kucaNaDan: number;
+    grijanjePoStepenu: number;
+    hladjenjePoStepenu: number | null;
+    bazaGrijanja: number;
+    bazaHladjenja: number;
+    tacnost: number | null;
+    brojRazmaka: number;
+    od: Trenutak;
+    do: Trenutak;
+  };
+  period?: { od: Trenutak; do: Trenutak; dana: number; kwh: number; pumpaKwh: number; kucaKwh: number } | null;
+  mjeseci?: RazmakPumpe[];
+  razmaci?: RazmakPumpe[];
+}
+
 export interface StanjeProcjene {
+  pumpa?: ProcjenaPumpe | null;
   ocitanja: Ocitanje[];
   poslana: PoslanoStanje[];
   zadnjePoznato: { datum: string; vrijeme: string | null; vt: number; mt: number; izRacuna: boolean } | null;

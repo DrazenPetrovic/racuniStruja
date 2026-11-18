@@ -66,7 +66,7 @@ export const obracunajIznos = (vt, mt, c) => {
 };
 
 // Sva poznata stanja brojila, po vremenu. U istom trenutku racun ima prednost pred rucnim unosom.
-const sviOslonci = (racuni, rucna) => {
+export const sviOslonci = (racuni, rucna) => {
   const poTrenutku = new Map(
     rucna.map((o) => {
       const s = saTrenutkom(o);

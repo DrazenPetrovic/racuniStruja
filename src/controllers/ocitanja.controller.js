@@ -2,7 +2,9 @@ import * as OcitanjaService from '../services/ocitanja.service.js';
 import * as RacuniService from '../services/racuni.service.js';
 import * as EmailService from '../services/email.service.js';
 import { uporediPoslana } from '../services/poslanaStanja.js';
-import { kretanjePotrosnje, procijeni, provjeriOcitanje, zadnjePoznatoStanje } from '../services/procjena.js';
+import { kretanjePotrosnje, procijeni, provjeriOcitanje, sviOslonci, zadnjePoznatoStanje } from '../services/procjena.js';
+import { procijeniPumpu, razmaciPotrosnje } from '../services/pumpa.js';
+import { satneTemperature } from '../services/temperatura.service.js';
 
 // "YYYY-MM-DD HH:MM" po lokalnom vremenu
 const sadasnjiTrenutak = () =>
@@ -35,12 +37,25 @@ const ucitajSve = async () => {
   return { racuni, ocitanja, poslana };
 };
 
-const stanjeZaPrikaz = ({ racuni, ocitanja, poslana }) => ({
+// Temperature dolaze sa interneta; ako nisu dostupne, ostatak stranice radi i bez ove procjene
+const pumpaZaPrikaz = async (racuni, ocitanja) => {
+  const razmaci = razmaciPotrosnje(racuni, sviOslonci(racuni, ocitanja));
+  if (razmaci.length === 0) return null;
+  try {
+    return procijeniPumpu(razmaci, await satneTemperature(razmaci[0].od.datum));
+  } catch (error) {
+    console.error('Greska pri citanju temperatura:', error);
+    return { greska: 'Temperature trenutno nisu dostupne, pa procjena pumpe nije uraÄ‘ena.' };
+  }
+};
+
+const stanjeZaPrikaz = async ({ racuni, ocitanja, poslana }) => ({
   ocitanja: [...ocitanja].reverse(),
   poslana: uporediPoslana(poslana, racuni),
   zadnjePoznato: zadnjePoznatoStanje(racuni, ocitanja),
   procjena: procijeni(racuni, ocitanja),
   kretanje: kretanjePotrosnje(racuni, ocitanja),
+  pumpa: await pumpaZaPrikaz(racuni, ocitanja),
   slanje: EmailService.postavkeSlanja(),
 });
 
@@ -51,13 +66,13 @@ export const posalji = async (req, res) => {
     return res.status(400).json({ success: false, message: 'Unesi oba stanja brojila' });
   }
   if (!EmailService.podesenoSlanje()) {
-    return res.status(503).json({ success: false, message: 'Slanje emaila nije podešeno na serveru (.env).' });
+    return res.status(503).json({ success: false, message: 'Slanje emaila nije podeĹˇeno na serveru (.env).' });
   }
   if (!EmailService.dozvoljenoSlanje()) {
     const { od, do: doDana } = EmailService.PERIOD_SLANJA;
     return res.status(403).json({
       success: false,
-      message: `Stanje se može poslati samo od ${od}. u mjesecu do ${doDana}. u sljedećem mjesecu.`,
+      message: `Stanje se moĹľe poslati samo od ${od}. u mjesecu do ${doDana}. u sljedeÄ‡em mjesecu.`,
     });
   }
 
@@ -69,7 +84,7 @@ export const posalji = async (req, res) => {
     const prijava = error?.code === 'EAUTH';
     return res.status(502).json({
       success: false,
-      message: prijava ? 'Gmail nije prihvatio prijavu. Provjeri GMAIL_APP_PASSWORD.' : 'Email nije poslan. Pokušaj ponovo.',
+      message: prijava ? 'Gmail nije prihvatio prijavu. Provjeri GMAIL_APP_PASSWORD.' : 'Email nije poslan. PokuĹˇaj ponovo.',
     });
   }
 
@@ -80,25 +95,25 @@ export const posalji = async (req, res) => {
     await OcitanjaService.zabiljeziPoslano({ poslano: sada, vt, mt, primalac });
   } catch (error) {
     console.error('Greska pri biljezenju poslanog stanja:', error);
-    napomene.push('Email je poslan, ali nije zabilježen u aplikaciji.');
+    napomene.push('Email je poslan, ali nije zabiljeĹľen u aplikaciji.');
   }
 
   try {
     const { racuni, ocitanja } = await ucitajSve();
     const ocitanje = { datum: sada.slice(0, 10), vrijeme: sada.slice(11, 16), vt, mt };
-    const provjera = racuni.length ? provjeriOcitanje(ocitanje, racuni, ocitanja, sada) : { greska: 'nema računa' };
+    const provjera = racuni.length ? provjeriOcitanje(ocitanje, racuni, ocitanja, sada) : { greska: 'nema raÄŤuna' };
     if (provjera.greska) {
-      napomene.push(`Stanje nije upisano kao očitanje: ${provjera.greska}`);
+      napomene.push(`Stanje nije upisano kao oÄŤitanje: ${provjera.greska}`);
     } else {
       await OcitanjaService.sacuvajOcitanje(ocitanje);
     }
   } catch (error) {
     console.error('Greska pri upisu poslanog ocitanja:', error);
-    napomene.push('Stanje nije upisano kao očitanje.');
+    napomene.push('Stanje nije upisano kao oÄŤitanje.');
   }
 
   try {
-    return res.json({ success: true, primalac, napomene, ...stanjeZaPrikaz(await ucitajSve()) });
+    return res.json({ success: true, primalac, napomene, ...(await stanjeZaPrikaz(await ucitajSve())) });
   } catch (error) {
     console.error('Greska pri citanju nakon slanja:', error);
     return res.json({ success: true, primalac, napomene });
@@ -113,20 +128,20 @@ export const obrisiPoslano = async (req, res) => {
 
   try {
     const obrisano = await OcitanjaService.obrisiPoslano(id);
-    if (!obrisano) return res.status(404).json({ success: false, message: 'Zapis nije pronađen' });
-    return res.json({ success: true, ...stanjeZaPrikaz(await ucitajSve()) });
+    if (!obrisano) return res.status(404).json({ success: false, message: 'Zapis nije pronaÄ‘en' });
+    return res.json({ success: true, ...(await stanjeZaPrikaz(await ucitajSve())) });
   } catch (error) {
     console.error('Greska pri brisanju poslanog stanja:', error);
-    return res.status(500).json({ success: false, message: 'Greška pri brisanju' });
+    return res.status(500).json({ success: false, message: 'GreĹˇka pri brisanju' });
   }
 };
 
 export const lista = async (req, res) => {
   try {
-    return res.json({ success: true, ...stanjeZaPrikaz(await ucitajSve()) });
+    return res.json({ success: true, ...(await stanjeZaPrikaz(await ucitajSve())) });
   } catch (error) {
     console.error('Greska pri citanju ocitanja:', error);
-    return res.status(500).json({ success: false, message: 'Greška pri čitanju očitanja' });
+    return res.status(500).json({ success: false, message: 'GreĹˇka pri ÄŤitanju oÄŤitanja' });
   }
 };
 
@@ -143,7 +158,7 @@ export const sacuvaj = async (req, res) => {
   try {
     const { racuni, ocitanja } = await ucitajSve();
     if (racuni.length === 0) {
-      return res.status(422).json({ success: false, message: 'Prvo uvezi bar jedan račun, zbog cijena i početnog stanja.' });
+      return res.status(422).json({ success: false, message: 'Prvo uvezi bar jedan raÄŤun, zbog cijena i poÄŤetnog stanja.' });
     }
 
     const provjera = provjeriOcitanje({ datum, vrijeme, vt, mt }, racuni, ocitanja, sada);
@@ -152,25 +167,25 @@ export const sacuvaj = async (req, res) => {
     }
 
     await OcitanjaService.sacuvajOcitanje({ datum, vrijeme, vt, mt });
-    return res.json({ success: true, upozorenja: provjera.upozorenja, ...stanjeZaPrikaz(await ucitajSve()) });
+    return res.json({ success: true, upozorenja: provjera.upozorenja, ...(await stanjeZaPrikaz(await ucitajSve())) });
   } catch (error) {
     console.error('Greska pri upisu ocitanja:', error);
-    return res.status(500).json({ success: false, message: 'Greška pri upisu očitanja' });
+    return res.status(500).json({ success: false, message: 'GreĹˇka pri upisu oÄŤitanja' });
   }
 };
 
 export const obrisi = async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) {
-    return res.status(400).json({ success: false, message: 'Neispravno očitanje' });
+    return res.status(400).json({ success: false, message: 'Neispravno oÄŤitanje' });
   }
 
   try {
     const obrisano = await OcitanjaService.obrisiOcitanje(id);
-    if (!obrisano) return res.status(404).json({ success: false, message: 'Očitanje nije pronađeno' });
-    return res.json({ success: true, ...stanjeZaPrikaz(await ucitajSve()) });
+    if (!obrisano) return res.status(404).json({ success: false, message: 'OÄŤitanje nije pronaÄ‘eno' });
+    return res.json({ success: true, ...(await stanjeZaPrikaz(await ucitajSve())) });
   } catch (error) {
     console.error('Greska pri brisanju ocitanja:', error);
-    return res.status(500).json({ success: false, message: 'Greška pri brisanju očitanja' });
+    return res.status(500).json({ success: false, message: 'GreĹˇka pri brisanju oÄŤitanja' });
   }
 };

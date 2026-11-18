@@ -1,4 +1,4 @@
-import { ChevronRight, Flame } from 'lucide-react';
+import { ChevronRight, Flame, Snowflake } from 'lucide-react';
 import type { Mjesec } from '../types';
 import { theme } from '../theme';
 import { km, kwh, mjesecGodina } from '../utils/format';
@@ -43,6 +43,12 @@ export function MjeseciLista({ racuni, onOtvoriMjesec }: MjeseciListaProps) {
                   <span className="inline-flex items-center gap-1 text-xs text-gray-700 tabular-nums">
                     <Flame className="w-3.5 h-3.5" aria-hidden />
                     grijanje ≈ {kwh(r.grijanjeKwh)}
+                  </span>
+                )}
+                {r.hladjenjeKwh !== null && r.hladjenjeKwh > 0 && (
+                  <span className="inline-flex items-center gap-1 text-xs text-gray-700 tabular-nums">
+                    <Snowflake className="w-3.5 h-3.5" aria-hidden />
+                    hlađenje ≈ {kwh(r.hladjenjeKwh)}
                   </span>
                 )}
               </span>

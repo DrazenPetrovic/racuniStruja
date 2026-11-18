@@ -56,20 +56,32 @@ test('zbir po zonama i prava cijena za stvarni julski racun', () => {
   assert.equal(r.fiksnoSaPdv, 16.37);
 });
 
-test('grijanje je potrosnja iznad prosjeka jun-septembar, samo u oktobru-maju', () => {
-  const { racuni, osnovnaPotrosnja, sezone } = dopuniMjesece([
-    mjesec(1, '2026-01-01', 2700),
-    mjesec(2, '2026-06-01', 600),
-    mjesec(3, '2026-07-01', 800),
-    mjesec(4, '2026-05-01', 650),
-    mjesec(5, '2026-10-01', 1300),
+test('osnova je septembar; grijanje je iznad zimske osnove, hladjenje iznad ljetne', () => {
+  const { racuni, osnovnaPotrosnja, osnovnaZimi, sezone, ljeta } = dopuniMjesece([
+    mjesec(1, '2025-09-01', 400),
+    mjesec(2, '2026-01-01', 2700),
+    mjesec(3, '2026-05-01', 500),
+    mjesec(4, '2026-07-01', 850),
+    mjesec(5, '2026-09-01', 600),
+    mjesec(6, '2026-10-01', 1300),
   ]);
-  assert.equal(osnovnaPotrosnja, 700);
-  assert.deepEqual(racuni.map((r) => r.grijanjeKwh), [2000, 0, null, null, 600]);
+  assert.equal(osnovnaPotrosnja, 500);
+  assert.equal(osnovnaZimi, 560);
+  assert.deepEqual(racuni.map((r) => r.grijanjeKwh), [null, 2140, 0, null, null, 740]);
+  assert.deepEqual(racuni.map((r) => r.hladjenjeKwh), [0, null, null, 350, 100, null]);
   assert.deepEqual(sezone.map((s) => [s.naziv, s.ukupnoKwh, s.grijanjeKwh]), [
-    ['2026/27', 1300, 600],
-    ['2025/26', 3350, 2000],
+    ['2026/27', 1300, 740],
+    ['2025/26', 3200, 2140],
   ]);
+  assert.deepEqual(ljeta.map((l) => [l.naziv, l.ukupnoKwh, l.hladjenjeKwh]), [
+    ['2026', 1450, 450],
+    ['2025', 400, 0],
+  ]);
+});
+
+test('bez septembra osnova je najmanji ljetni mjesec', () => {
+  const { osnovnaPotrosnja } = dopuniMjesece([mjesec(1, '2026-06-01', 650), mjesec(2, '2026-07-01', 850)]);
+  assert.equal(osnovnaPotrosnja, 650);
 });
 
 test('bez mjeseci jun-septembar grijanje se ne procjenjuje', () => {

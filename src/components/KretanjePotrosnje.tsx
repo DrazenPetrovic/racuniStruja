@@ -166,30 +166,42 @@ interface Stub extends IntervalPotrosnje {
   oznaka: string;
   udioVt: number;
   udioMt: number;
+  // Ukupno kWh/dan iznad zadnjeg stuba, na dijelu koji je gore (skupa, ili jeftina kad skupe nema)
+  vrhVt?: number;
+  vrhMt?: number;
 }
 
 // Procenat se upisuje u sam dio stuba, samo kad je dio dovoljno visok da se procita
 const MIN_VISINA_ZA_PROCENAT = 14;
 
-const procenatUStubu = (kljuc: 'udioVt' | 'udioMt', stubovi: Stub[]) =>
-  function ProcenatUStubu(props: { x?: string | number; y?: string | number; width?: string | number; height?: string | number; index?: number }) {
-    const s = stubovi[props.index ?? -1];
-    const visina = Number(props.height);
-    if (!s || !(visina >= MIN_VISINA_ZA_PROCENAT)) return null;
-    return (
-      <text
-        x={Number(props.x) + Number(props.width) / 2}
-        y={Number(props.y) + visina / 2}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontSize={9}
-        fontWeight={700}
-        fill="#ffffff"
-      >
-        {s[kljuc]}%
-      </text>
-    );
-  };
+// Recharts izbacuje dijelove stuba visine 0, pa index u LabelList ne odgovara redu podataka.
+// Zato se koristi value, koje Recharts cita iz reda kojem dio stuba stvarno pripada.
+function ProcenatUStubu(props: { x?: string | number; y?: string | number; width?: string | number; height?: string | number; value?: unknown }) {
+  const visina = Number(props.height);
+  if (props.value === null || props.value === undefined || !(visina >= MIN_VISINA_ZA_PROCENAT)) return null;
+  return (
+    <text
+      x={Number(props.x) + Number(props.width) / 2}
+      y={Number(props.y) + visina / 2}
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={9}
+      fontWeight={700}
+      fill="#ffffff"
+    >
+      {String(props.value)}%
+    </text>
+  );
+}
+
+function UkupnoIznadStuba(props: { x?: string | number; y?: string | number; width?: string | number; value?: unknown }) {
+  if (props.value === null || props.value === undefined) return null;
+  return (
+    <text x={Number(props.x) + Number(props.width) / 2} y={Number(props.y) - 6} textAnchor="middle" fontSize={11} fontWeight={600} fill="#1f2937">
+      {decimalni(Number(props.value))}
+    </text>
+  );
+}
 
 function OblacicIntervala({ active, payload }: { active?: boolean; payload?: { payload: Stub }[] }) {
   if (!active || !payload?.length) return null;
@@ -210,19 +222,21 @@ function OblacicIntervala({ active, payload }: { active?: boolean; payload?: { p
 function GrafikIntervala({ intervali }: { intervali: IntervalPotrosnje[] }) {
   const stubovi = useMemo<Stub[]>(
     () =>
-      intervali.slice(-MAKS_STUBOVA).map((iv) => {
+      intervali.slice(-MAKS_STUBOVA).map((iv, i, niz) => {
         // Zaokruzuje se samo skupa, da zbir uvijek bude tacno 100%
         const udioVt = iv.kwh > 0 ? Math.round((iv.vt / iv.kwh) * 100) : 0;
+        const zadnji = i === niz.length - 1;
         return {
           ...iv,
           oznaka: trenutakKratko(iv.do.datum, iv.do.vrijeme),
           udioVt,
           udioMt: iv.kwh > 0 ? 100 - udioVt : 0,
+          vrhVt: zadnji && iv.vtNaDan > 0 ? iv.kwhNaDan : undefined,
+          vrhMt: zadnji && !(iv.vtNaDan > 0) ? iv.kwhNaDan : undefined,
         };
       }),
     [intervali],
   );
-  const zadnjiIndex = stubovi.length - 1;
 
   return (
     <div>
@@ -245,20 +259,12 @@ function GrafikIntervala({ intervali }: { intervali: IntervalPotrosnje[] }) {
             <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: BOJA_OSE }} tickFormatter={cijeliBroj} width={38} allowDecimals={false} />
             <Tooltip content={<OblacicIntervala />} cursor={{ fill: '#f3f4f6' }} />
             <Bar dataKey="mtNaDan" stackId="t" fill={theme.jeftina} stroke="#ffffff" strokeWidth={1} isAnimationActive={false}>
-              <LabelList dataKey="udioMt" content={procenatUStubu('udioMt', stubovi)} />
+              <LabelList dataKey="udioMt" content={ProcenatUStubu} />
+              <LabelList dataKey="vrhMt" content={UkupnoIznadStuba} />
             </Bar>
             <Bar dataKey="vtNaDan" stackId="t" fill={theme.skupa} stroke="#ffffff" strokeWidth={1} radius={[4, 4, 0, 0]} isAnimationActive={false}>
-              <LabelList dataKey="udioVt" content={procenatUStubu('udioVt', stubovi)} />
-              <LabelList
-                dataKey="kwhNaDan"
-                content={(props: { x?: string | number; y?: string | number; width?: string | number; value?: unknown; index?: number }) =>
-                  props.index === zadnjiIndex ? (
-                    <text x={Number(props.x) + Number(props.width) / 2} y={Number(props.y) - 6} textAnchor="middle" fontSize={11} fontWeight={600} fill="#1f2937">
-                      {decimalni(Number(props.value))}
-                    </text>
-                  ) : null
-                }
-              />
+              <LabelList dataKey="udioVt" content={ProcenatUStubu} />
+              <LabelList dataKey="vrhVt" content={UkupnoIznadStuba} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
