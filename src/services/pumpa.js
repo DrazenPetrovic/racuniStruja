@@ -171,11 +171,13 @@ export const procijeniPumpu = (sviRazmaci, temperatura) => {
   const prosjek = razmaci.reduce((z, r) => z + r.kwh, 0) / ukupnoDana;
   const rasipanje = razmaci.reduce((z, r) => z + r.dana * (r.kwh / r.dana - prosjek) ** 2, 0);
 
-  // Izmjerena potrosnja se dijeli u omjeru koji daje model, pa zbir uvijek odgovara brojilu
+  // Kuca je stalna potrosnja iz modela, a sve iznad nje je pumpa. Zbir uvijek odgovara brojilu.
+  // Ranije se izmjereno dijelilo u omjeru modela, pa je topao dan (npr. jugo, 17 °C) davao pumpi 0
+  // i cijelu potrosnju kuci, iako se grijalo, a hladan dan kuci manje od njene stalne potrosnje.
   const podijeli = (r) => {
     const kuca = koef.kuca * r.dana;
     const pumpa = koef.grijanje * r.grijanje + koef.hladjenje * r.hladjenje;
-    const udioPumpe = kuca + pumpa > 0 ? pumpa / (kuca + pumpa) : 0;
+    const udioPumpe = r.kwh > 0 ? Math.max(0, r.kwh - kuca) / r.kwh : 0;
     return {
       mjesec: r.mjesec,
       od: r.od,

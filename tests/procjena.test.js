@@ -234,3 +234,32 @@ test('kretanje bez dovoljno ocitanja ne izmislja poredjenje', () => {
   assert.equal(k.intervali.length, 1);
   assert.equal(k.poredjenje, null);
 });
+
+test('sedmicni pregled ide unazad od zadnjeg unosa, po 7 dana', () => {
+  const rucna = [];
+  // Svaki dan u 20:00, skupa +20 i jeftina +30 dnevno, a zadnja sedmica jeftina +40
+  for (let d = 1; d <= 22; d += 1) {
+    const dd = String(d).padStart(2, '0');
+    const jeftinaDnevno = d > 15 ? 40 : 30;
+    const prethodna = rucna.length ? rucna[rucna.length - 1] : { vt: 9165, mt: 9711 };
+    rucna.push({ id: d, datum: `2026-11-${dd}`, vrijeme: '20:00', vt: prethodna.vt + 20, mt: prethodna.mt + jeftinaDnevno });
+  }
+  const { sedmice } = kretanjePotrosnje([septembar, oktobar], rucna);
+  assert.equal(sedmice.length, 3);
+  assert.deepEqual(sedmice[0].od, { datum: '2026-11-15', vrijeme: '20:00' });
+  assert.deepEqual(sedmice[0].do, { datum: '2026-11-22', vrijeme: '20:00' });
+  assert.equal(sedmice[0].kwh, 7 * 60);
+  assert.equal(sedmice[0].udioVt + sedmice[0].udioMt, 100);
+  assert.equal(sedmice[0].udioVt, 33);
+  assert.equal(sedmice[1].kwh, 7 * 50);
+  assert.equal(sedmice[0].promjena, 20);
+  assert.equal(sedmice[0].priblizno, false);
+  // Treca sedmica zahvata razmak od 31.10. (kraj dana) do 1.11. u 20:00, koji je kraci od 2 dana
+  assert.deepEqual(sedmice[2].od, { datum: '2026-11-01', vrijeme: '20:00' });
+  assert.equal(sedmice[2].promjena, null);
+});
+
+test('sedmica unutar mjesecnog racuna se ne prikazuje', () => {
+  const k = kretanjePotrosnje([septembar, oktobar], [{ id: 1, datum: '2026-11-03', vrijeme: '20:00', vt: 9200, mt: 9750 }]);
+  assert.deepEqual(k.sedmice, []);
+});

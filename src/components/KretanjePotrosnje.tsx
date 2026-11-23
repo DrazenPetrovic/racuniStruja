@@ -4,6 +4,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   LabelList,
   Line,
   LineChart,
@@ -13,7 +14,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { IntervalPotrosnje, Kretanje, Procjena } from '../types';
+import type { IntervalPotrosnje, Kretanje, Procjena, SedmicaPotrosnje } from '../types';
 import { theme, zonaPoKljucu } from '../theme';
 import { cijeliBroj, decimalni, kwh, mjesecGodina, trenutakKratko } from '../utils/format';
 import { Kartica, Oznaka } from './Kartica';
@@ -277,6 +278,97 @@ function GrafikIntervala({ intervali }: { intervali: IntervalPotrosnje[] }) {
   );
 }
 
+// ---------- Sedmicni grafik ----------
+
+interface StubSedmice extends SedmicaPotrosnje {
+  oznaka: string;
+  // Ukupno iznad stuba, na dijelu koji je gore (skupa, ili jeftina kad skupe nema)
+  vrhVt?: string;
+  vrhMt?: string;
+}
+
+function TekstIznadStuba(props: { x?: string | number; y?: string | number; width?: string | number; value?: unknown }) {
+  if (props.value === null || props.value === undefined) return null;
+  return (
+    <text x={Number(props.x) + Number(props.width) / 2} y={Number(props.y) - 6} textAnchor="middle" fontSize={11} fontWeight={600} fill="#1f2937">
+      {String(props.value)}
+    </text>
+  );
+}
+
+function OblacicSedmice({ active, payload }: { active?: boolean; payload?: { payload: StubSedmice }[] }) {
+  if (!active || !payload?.length) return null;
+  const s = payload[0].payload;
+  return (
+    <div className="bg-white rounded-lg shadow-lg border border-gray-200 px-3 py-2 text-xs text-gray-800 tabular-nums">
+      <p className="font-semibold mb-1">
+        {krajSedmice(s.od)} – {krajSedmice(s.do)}
+      </p>
+      <p>{s.priblizno ? '≈ ' : ''}{kwh(s.kwh)} ({decimalni(s.kwhNaDan)} kWh/dan)</p>
+      <p>Skupa: {kwh(s.vt)} ({s.udioVt}%)</p>
+      <p>Jeftina: {kwh(s.mt)} ({s.udioMt}%)</p>
+      {s.promjena !== null && <p>Prema sedmici prije: {s.promjena > 0 ? '+' : ''}{decimalni(s.promjena, 0)}%</p>}
+      {s.priblizno && <p className="text-gray-500 mt-1">Dio potrošnje podijeljen ravnomjerno</p>}
+    </div>
+  );
+}
+
+function GrafikSedmica({ sedmice }: { sedmice: SedmicaPotrosnje[] }) {
+  // Tabela ide od najnovije, a grafik hronoloski: najstarija lijevo
+  const stubovi = useMemo<StubSedmice[]>(
+    () =>
+      [...sedmice].reverse().map((s) => {
+        const ukupno = `${s.priblizno ? '≈' : ''}${cijeliBroj(s.kwh)}`;
+        return {
+          ...s,
+          oznaka: `do ${trenutakKratko(s.do.datum, null)}`,
+          vrhVt: s.vt > 0 ? ukupno : undefined,
+          vrhMt: s.vt > 0 ? undefined : ukupno,
+        };
+      }),
+    [sedmice],
+  );
+  const providnost = (s: StubSedmice) => (s.priblizno ? 0.5 : 1);
+
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-gray-800 mb-2">Potrošnja po sedmicama (kWh)</h3>
+      <div className="flex gap-4 mb-1">
+        <Oznaka boja={theme.skupa} tekst="Skupa" />
+        <Oznaka boja={theme.jeftina} tekst="Jeftina" />
+      </div>
+      <div style={{ height: VISINA_GRAFIKA }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={stubovi} margin={{ top: 18, right: 8, left: 0, bottom: 0 }} barCategoryGap="20%">
+            <CartesianGrid vertical={false} stroke={BOJA_MREZE} />
+            <XAxis dataKey="oznaka" tickLine={false} axisLine={{ stroke: '#d1d5db' }} tick={{ fontSize: 10, fill: BOJA_OSE }} interval={0} />
+            <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: BOJA_OSE }} tickFormatter={cijeliBroj} width={38} allowDecimals={false} />
+            <Tooltip content={<OblacicSedmice />} cursor={{ fill: '#f3f4f6' }} />
+            <Bar dataKey="mt" stackId="s" fill={theme.jeftina} stroke="#ffffff" strokeWidth={1} isAnimationActive={false}>
+              {stubovi.map((s) => (
+                <Cell key={s.do.datum} fillOpacity={providnost(s)} />
+              ))}
+              <LabelList dataKey="udioMt" content={ProcenatUStubu} />
+              <LabelList dataKey="vrhMt" content={TekstIznadStuba} />
+            </Bar>
+            <Bar dataKey="vt" stackId="s" fill={theme.skupa} stroke="#ffffff" strokeWidth={1} radius={[4, 4, 0, 0]} isAnimationActive={false}>
+              {stubovi.map((s) => (
+                <Cell key={s.do.datum} fillOpacity={providnost(s)} />
+              ))}
+              <LabelList dataKey="udioVt" content={ProcenatUStubu} />
+              <LabelList dataKey="vrhVt" content={TekstIznadStuba} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <p className="text-xs text-gray-500 mt-1">
+        Svaki stub je 7 dana, unazad od zadnjeg unosa; najnovija sedmica je desno. Broj iznad stuba je ukupno kWh, a procenti u stubu udio skupe i jeftine.
+        {sedmice.some((s) => s.priblizno) && ' Svjetliji stub (≈) je sedmica u kojoj je dio potrošnje podijeljen ravnomjerno, jer su unosi bili rjeđi.'}
+      </p>
+    </div>
+  );
+}
+
 // ---------- Kartica kretanja ----------
 
 function Sazetak({ k }: { k: Kretanje }) {
@@ -295,6 +387,64 @@ function Sazetak({ k }: { k: Kretanje }) {
       </div>
       <p className="text-sm text-gray-700 tabular-nums">
         {decimalni(pr.sada.kwhNaDan)} kWh/dan, a {ranije} {decimalni(pr.prije.kwhNaDan)} kWh/dan ({kwh(pr.prije.kwh)})
+      </p>
+    </div>
+  );
+}
+
+// Kratak opis kraja sedmice: "15.11. 20:42" ili "15.11."
+const krajSedmice = (s: SedmicaPotrosnje['od']) => trenutakKratko(s.datum, s.vrijeme);
+
+function SedmicniPregled({ sedmice }: { sedmice: SedmicaPotrosnje[] }) {
+  if (sedmice.length === 0) {
+    return <p className="text-sm text-gray-600">Za sedmični pregled treba bar 7 dana očitanja.</p>;
+  }
+  const imaPriblizno = sedmice.some((s) => s.priblizno);
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-gray-800 mb-2">Sedmični pregled</h3>
+      <table className="w-full text-sm tabular-nums">
+        <thead>
+          <tr className="text-xs text-gray-500">
+            <th className="text-left font-normal pb-1">7 dana</th>
+            <th className="text-right font-normal pb-1">kWh</th>
+            <th className="text-right font-normal pb-1">Skupa / jeftina</th>
+            <th className="text-right font-normal pb-1">Promjena</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sedmice.map((s, i) => (
+            <tr key={`${s.do.datum} ${s.do.vrijeme}`} className="border-t border-gray-100 text-gray-900 align-top">
+              <td className="py-1.5">
+                {i === 0 ? 'Zadnja' : `${i + 1}. unazad`}
+                <span className="block text-xs text-gray-500">
+                  {krajSedmice(s.od)} – {krajSedmice(s.do)}
+                </span>
+              </td>
+              <td className="text-right py-1.5">
+                <span className="font-semibold">{s.priblizno ? '≈ ' : ''}{cijeliBroj(s.kwh)}</span>
+                <span className="block text-xs text-gray-500">{decimalni(s.kwhNaDan)}/dan</span>
+              </td>
+              <td className="text-right py-1.5">
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: theme.skupa }} aria-hidden />
+                  {s.udioVt}%
+                </span>
+                <span className="flex items-center justify-end gap-1">
+                  <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: theme.jeftina }} aria-hidden />
+                  {s.udioMt}%
+                </span>
+              </td>
+              <td className="text-right py-1.5 text-xs">
+                <Promjena procenat={s.promjena} kratko />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="text-xs text-gray-500 mt-2">
+        Sedmice se broje unazad od zadnjeg unosa, po 7 punih dana, bez obzira na dan u sedmici. Promjena je prema sedmici prije.
+        {imaPriblizno && ' ≈ znači da je u toj sedmici razmak između unosa bio duži od 2 dana, pa je dio potrošnje podijeljen ravnomjerno.'}
       </p>
     </div>
   );
@@ -349,6 +499,14 @@ export function KretanjeKartica({ k }: { k: Kretanje }) {
   return (
     <Kartica naslov="Kretanje potrošnje">
       <Sazetak k={k} />
+      {(k.sedmice ?? []).length > 0 && (
+        <div className="border-t border-gray-100 mt-3 pt-3">
+          <GrafikSedmica sedmice={k.sedmice} />
+        </div>
+      )}
+      <div className="border-t border-gray-100 mt-3 pt-3">
+        <SedmicniPregled sedmice={k.sedmice ?? []} />
+      </div>
       {k.intervali.length > 0 && (
         <>
           <div className="border-t border-gray-100 mt-3 pt-3">

@@ -119,8 +119,9 @@ export function PumpaKartica({ p }: { p: ProcjenaPumpe }) {
 
       <p className="text-xs text-gray-500 mt-3">
         Procjena poredi potrošnju sa satnom temperaturom u Banjoj Luci (Open-Meteo): koliko potrošnja raste kad je hladnije,
-        to je pumpa, a dio koji ne zavisi od temperature je kuća. Izmjerena potrošnja se dijeli u tom omjeru, pa pumpa i kuća
-        zajedno uvijek daju stanje brojila. Naglo veća potrošnja kuće (pranje, pećnica) zato se dijelom pripiše i pumpi.
+        to je pumpa, a dio koji ne zavisi od temperature je kuća. Kuća se računa kao stalnih {decimalni(m.kucaNaDan)} kWh/dan,
+        a sve izmjereno preko toga je pumpa, pa pumpa i kuća zajedno uvijek daju stanje brojila. Veća potrošnja kuće
+        nekog dana (pranje, pećnica) zato se pripiše pumpi.
         {m.tacnost !== null && ` Model objašnjava ${m.tacnost}% razlika u potrošnji iz ${m.brojRazmaka} razmaka (${trenutakKratko(m.od.datum, m.od.vrijeme)}${m.od.datum.slice(0, 4)}. – ${trenutakKratko(m.do.datum, m.do.vrijeme)}).`}
       </p>
     </Kartica>

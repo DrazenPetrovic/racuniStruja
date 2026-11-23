@@ -267,6 +267,68 @@ const najduziRasponU = (oslonci, od, doT) => {
   return najduzi;
 };
 
+// Stanje skupe i jeftine u bilo kom trenutku, ravnomjerno izmedju dva poznata stanja
+const stanjeTarifaU = (oslonci, t) => {
+  for (let i = 1; i < oslonci.length; i += 1) {
+    const a = oslonci[i - 1];
+    const b = oslonci[i];
+    if (t >= a.t && t <= b.t) {
+      const udio = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t);
+      return { vt: a.vt + (b.vt - a.vt) * udio, mt: a.mt + (b.mt - a.mt) * udio };
+    }
+  }
+  return null;
+};
+
+// Trenutak u dane -> { datum, vrijeme }. Ponoc se prikazuje kao kraj prethodnog dana.
+const izTrenutka = (t) => {
+  const minuta = Math.round((t - Math.floor(t)) * MINUTA_U_DANU);
+  if (minuta === 0 || minuta === MINUTA_U_DANU) return { datum: izDana(Math.round(t) - 1), vrijeme: null };
+  const sat = String(Math.floor(minuta / 60)).padStart(2, '0');
+  return { datum: izDana(Math.floor(t)), vrijeme: `${sat}:${String(minuta % 60).padStart(2, '0')}` };
+};
+
+const DANA_SEDMICE = 7;
+const MAKS_SEDMICA = 8;
+// Sedmica u kojoj je razmak izmedju ocitanja duzi od ovoga je samo priblizna (dijeljena ravnomjerno)
+const DANA_ZA_PRIBLIZNO = 2;
+
+// Sedmice od po 7 dana unazad od zadnjeg poznatog stanja, bez obzira na dan u sedmici
+const sedmicePotrosnje = (oslonci) => {
+  const zadnji = oslonci[oslonci.length - 1].t;
+  const sedmice = [];
+  for (let w = 0; w < MAKS_SEDMICA; w += 1) {
+    const doT = zadnji - w * DANA_SEDMICE;
+    const odT = doT - DANA_SEDMICE;
+    const kraj = stanjeTarifaU(oslonci, doT);
+    const pocetak = stanjeTarifaU(oslonci, odT);
+    if (!kraj || !pocetak) break;
+    const najduzi = najduziRasponU(oslonci, odT, doT);
+    // Sedmica unutar mjesecnog racuna bi bila samo prosjek racuna
+    if (najduzi > DANA_SEDMICE) break;
+    const vt = kraj.vt - pocetak.vt;
+    const mt = kraj.mt - pocetak.mt;
+    const kwh = vt + mt;
+    const udioVt = kwh > 0 ? Math.round((vt / kwh) * 100) : 0;
+    sedmice.push({
+      od: izTrenutka(odT),
+      do: izTrenutka(doT),
+      kwh: Math.round(kwh),
+      kwhNaDan: zaokruzi(kwh / DANA_SEDMICE, 1),
+      vt: Math.round(vt),
+      mt: Math.round(mt),
+      udioVt,
+      udioMt: kwh > 0 ? 100 - udioVt : 0,
+      priblizno: najduzi > DANA_ZA_PRIBLIZNO,
+    });
+  }
+  // Promjena prema sedmici prije (sljedeca u nizu je starija)
+  return sedmice.map((s, i) => ({
+    ...s,
+    promjena: sedmice[i + 1] ? procenatPromjene(s.kwh, sedmice[i + 1].kwh) : null,
+  }));
+};
+
 const procenatPromjene = (sada, prije) => (prije > 0 ? zaokruzi(((sada - prije) / prije) * 100, 1) : null);
 
 const razlikaSati = (a, b) => {
@@ -360,5 +422,6 @@ export const kretanjePotrosnje = (racuni, rucna) => {
   return {
     intervali: intervali.filter((iv) => !iv.izRacuna).slice(-MAKS_INTERVALA),
     poredjenje,
+    sedmice: sedmicePotrosnje(oslonci),
   };
 };

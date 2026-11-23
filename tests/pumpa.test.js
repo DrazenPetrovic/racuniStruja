@@ -55,3 +55,22 @@ test('bez dovoljno podataka nema procjene', () => {
   const p = procijeniPumpu(razmaciPotrosnje(racuni.slice(0, 3), []), temperatura);
   assert.ok(p.greska);
 });
+
+test('topao dan ne daje pumpi 0 kad je izmjereno vise od stalne potrosnje kuce', () => {
+  const { racuni, temperatura } = podaci();
+  // Dan poslije zadnjeg racuna na 20 °C (model ne ocekuje grijanje), a izmjereno 37 kWh
+  const dec31 = { datum: '2026-12-31', vrijeme: null, t: trenutak('2026-12-31', null), vt: 1000, mt: 0, izRacuna: true };
+  const unos = (datum, vt) => ({ datum, vrijeme: '20:00', t: trenutak(datum, '20:00'), vt, mt: 0, izRacuna: false });
+  for (let h = 0; h < 72; h += 1) temperatura.set(sat('2027-01-01') + h, 20);
+  const p = procijeniPumpu(razmaciPotrosnje(racuni, [dec31, unos('2027-01-01', 1010), unos('2027-01-02', 1047)]), temperatura);
+  const topao = p.razmaci[p.razmaci.length - 1];
+  assert.equal(topao.kwh, 37);
+  // Kuca ostaje na svojoj stalnoj potrosnji (~17), a ostatak je pumpa
+  assert.ok(Math.abs(topao.kucaKwh - p.model.kucaNaDan * topao.dana) < 0.2, `kuca ${topao.kucaKwh}`);
+  assert.ok(topao.pumpaKwh > 15, `pumpa ${topao.pumpaKwh}`);
+  assert.ok(Math.abs(topao.pumpaKwh + topao.kucaKwh - 37) < 0.11);
+  // Manje od stalne potrosnje kuce: sve je kuca, pumpa 0
+  const kratki = p.razmaci[0];
+  assert.equal(kratki.pumpaKwh, 0);
+  assert.equal(kratki.kucaKwh, kratki.kwh);
+});

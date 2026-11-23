@@ -136,8 +136,22 @@ export interface IntervalPotrosnje {
   poredjenje: { od: Trenutak; do: Trenutak; slican: boolean; kwhNaDan: number; promjena: number | null } | null;
 }
 
+export interface SedmicaPotrosnje {
+  od: Trenutak;
+  do: Trenutak;
+  kwh: number;
+  kwhNaDan: number;
+  vt: number;
+  mt: number;
+  udioVt: number;
+  udioMt: number;
+  priblizno: boolean;
+  promjena: number | null;
+}
+
 export interface Kretanje {
   intervali: IntervalPotrosnje[];
+  sedmice: SedmicaPotrosnje[];
   poredjenje: {
     dana: number;
     sada: { kwh: number; kwhNaDan: number };
